@@ -19,6 +19,11 @@ const initGround = () => {
     ground.receiveShadow = true;
 
     scene.add(ground)
+    const size = 1000;
+    const divisions = 20;
+
+    const gridHelper = new THREE.GridHelper( size, divisions );
+    scene.add( gridHelper );
 }
 
 const initLights = () => {
@@ -35,10 +40,21 @@ const initLights = () => {
 
     const controls = new DragControls([cube], camera, renderer.domElement);
 
-    controls.addEventListener('drag', function (event) {
+    controls.addEventListener('drag', (event) => {
+        // cube.position.x = Math.round(cube.position.x / 20) * 20;
+        // cube.position.z = Math.round(cube.position.z / 20) * 20;
         light.position.x = cube.position.x;
         light.position.z = cube.position.z;
     });
+
+    controls.addEventListener("dragend", (event) => {
+        const grid = 50;
+        const halfGrd = grid / 2;
+        cube.position.x = Math.round((cube.position.x + halfGrd) / grid) * grid - halfGrd;
+        cube.position.z = Math.round((cube.position.z + halfGrd) / grid) * grid - halfGrd;
+        light.position.x = cube.position.x;
+        light.position.z = cube.position.z;
+    })
 
 }
 
@@ -57,8 +73,8 @@ const initWalls = () => {
 
 
 const init = () => {
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000.0);
-    // camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, 0.1, 10000);
+    // camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000.0);
+    camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, 0.1, 10000);
     camera.position.set(0, 700, 0)
     // camera.zoom = 0.5
 
@@ -69,7 +85,7 @@ const init = () => {
 
     renderer = new THREE.WebGLRenderer({antialias: true});
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    // renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.shadowMap.enabled = true
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableRotate = false
