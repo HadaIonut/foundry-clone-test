@@ -3,12 +3,18 @@ import * as THREE from 'three'
 import {ref, watch} from "vue";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 import {DragControls} from "three/addons/controls/DragControls.js";
+import {ConvexGeometry} from "three/addons/geometries/ConvexGeometry.js";
 
 const app = ref(null)
 
-let camera, scene, renderer, controls, mesh, light, lightControls, sphere, line;
+let camera, scene, renderer, controls, mesh, light, lightControls, sphere, line, transformTest;
 let isBuilding = false;
 let mouseMoveCoords = []
+let points = []
+let click = []
+
+let walls = [];
+let wallWorkingIndex = 0;
 
 const initGround = () => {
   const groundTexture = new THREE.TextureLoader().load('./map.jpg')
@@ -72,6 +78,7 @@ const initWalls = () => {
   // wall2.receiveShadow = true;
   wall2.position.x = 100;
   scene.add(wall2)
+  console.log(wall2)
 };
 
 const findLocationFromCoords = (x,y) => {
@@ -89,13 +96,15 @@ const findLocationFromCoords = (x,y) => {
 
 const initLine = (x,y) => {
   const [clickX, clickY] = findLocationFromCoords(x, y)
+  click[0] = clickX
+  click[1] = clickY
   if (!clickX) return
 
   const material = new THREE.LineBasicMaterial({color: 0x0000ff});
 
   const points = [];
   points.push(new THREE.Vector3(clickX, 0, clickY));
-  points.push(new THREE.Vector3(clickX + 2, 0, clickY + 2));
+  points.push(new THREE.Vector3(clickX + 200, 0, clickY + 200));
 
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
   line = new THREE.Line(geometry, material);
@@ -106,29 +115,47 @@ const initLine = (x,y) => {
   isBuilding = true;
 }
 
-const testShape = () => {
+const createNewGeometry = () => {
   const wallShape = new THREE.Shape();
-  wallShape.lineTo(500, 30);
-  wallShape.lineTo(500, 30);
-  wallShape.lineTo(0, 30);
+  wallShape.setFromPoints(points)
 
-  const wallGeometry = new THREE.ExtrudeGeometry([ wallShape ], {
-    steps: 1,
-    depth: 5,
+  return new THREE.ExtrudeGeometry([ wallShape ], {
+    depth: 10,
     bevelEnabled: false,
-    curveSegments: 32
   });
-  const wallA = new THREE.Mesh(wallGeometry, new THREE.MeshBasicMaterial({ color: 'red'}));
-  // wallA.translateX(-200);
-  wallA.translateY(-15);
-  console.log(wallA)
-  wallA.position.z = 100
-  wallA.castShadow = true;
-  scene.add(wallA)
+}
+
+const testShape = (x,y) => {
+  if (walls[wallWorkingIndex]) {
+    wallWorkingIndex++;
+    points = []
+    return;
+  }
+
+  const [clickX, clickY] = findLocationFromCoords(x, y)
+  if (!clickX) return
+
+  points.push(new THREE.Vector3(clickX, 0,  clickY)); // original-click 0
+  points.push(new THREE.Vector3(clickX, 0,  clickY + 10)); // original-click 1
+  points.push(new THREE.Vector3(clickX + 2, 0,   clickY + 10)); // 2
+  points.push(new THREE.Vector3(clickX + 2,  0, clickY)); // 3
+
+  points.push(new THREE.Vector3(clickX, 10,  clickY)); // original-click 4
+  points.push(new THREE.Vector3(clickX, 10,  clickY + 10)); // original-click 5
+  points.push(new THREE.Vector3(clickX + 2, 10,   clickY + 10)); // 6
+  points.push(new THREE.Vector3(clickX + 2,  10,  clickY)); //7
+
+  const wallGeometry = new ConvexGeometry( points )
+
+  walls[wallWorkingIndex] = new THREE.Mesh(wallGeometry, new THREE.MeshBasicMaterial({ color: 'red'}));
+
+  walls[wallWorkingIndex].castShadow = true;
+
+  scene.add(walls[wallWorkingIndex])
 }
 
 const init = () => {
-  // camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000.0);
+  // camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000.0);
   camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, 0.1, 10000);
   camera.position.set(0, 700, 0)
   // camera.zoom = 0.5
@@ -150,7 +177,7 @@ const init = () => {
 
     newValue.appendChild(renderer.domElement)
     newValue.addEventListener('click', (event) => {
-      // initLine(event.clientX, event.clientY)
+      testShape(event.clientX, event.clientY)
     })
   })
 
@@ -170,11 +197,25 @@ const animate = () => {
 
   const newMouseCoords = findLocationFromCoords(mouseMoveCoords[0], mouseMoveCoords[1])
 
-  if (newMouseCoords.length !== 0 && line) {
-    line.geometry.attributes.position.array[3] = newMouseCoords[0]
-    line.geometry.attributes.position.array[5] = newMouseCoords[1]
-    line.geometry.attributes.position.needsUpdate = true
+  if (newMouseCoords.length !== 0 && walls[wallWorkingIndex]) {
+    points[2].x = newMouseCoords[0]
+    points[2].z = newMouseCoords[1] + 10
+    points[3].x = newMouseCoords[0]
+    points[3].z = newMouseCoords[1]
+
+    points[6].x = newMouseCoords[0]
+    points[6].z = newMouseCoords[1] + 10
+    points[7].x = newMouseCoords[0]
+    points[7].z = newMouseCoords[1]
+
+    walls[wallWorkingIndex].geometry = new ConvexGeometry( points )
+    // const rotation = Math.atan((click[0] - newMouseCoords[0]) / (newMouseCoords[1] - click[1]))
+    // if (!Number.isNaN(rotation)) transformTest.rotateY(rotation)
+    // console.log(click, rotation,newMouseCoords)
+    // transformTest.lookAt(new THREE.Vector3(-newMouseCoords[1], 10, newMouseCoords[0]))
+    walls[wallWorkingIndex].geometry.attributes.position.needsUpdate = true
   }
+
 
   renderer.render(scene, camera);
 }
