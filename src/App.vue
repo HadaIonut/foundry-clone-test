@@ -7,6 +7,7 @@ import {DragControls} from "three/addons/controls/DragControls.js";
 const app = ref(null)
 
 let camera, scene, renderer, controls, mesh, light, lightControls, sphere;
+let dragging = true;
 
 const initGround = () => {
     const groundTexture = new THREE.TextureLoader().load('./map.jpg')
@@ -21,6 +22,9 @@ const initGround = () => {
     scene.add(ground)
     const size = 1000;
     const divisions = 20;
+    ground.addEventListener("hover", () => {
+        console.log("clicked")
+    })
 
     const gridHelper = new THREE.GridHelper( size, divisions );
     scene.add( gridHelper );
@@ -33,16 +37,21 @@ const initLights = () => {
     scene.add(light);
 
     const geometry = new THREE.SphereGeometry(20);
-    const material = new THREE.MeshBasicMaterial({color: "orange", emissive: 0.5});
+    const material = new THREE.MeshBasicMaterial({color: "orange"});
     const cube = new THREE.Mesh(geometry, material);
     cube.castShadow = false;
     scene.add(cube)
 
     const controls = new DragControls([cube], camera, renderer.domElement);
 
+    controls.addEventListener("dragstart", () => {
+        dragging = false;
+    })
+
     controls.addEventListener('drag', (event) => {
         // cube.position.x = Math.round(cube.position.x / 20) * 20;
         // cube.position.z = Math.round(cube.position.z / 20) * 20;
+        cube.position.y = 10
         light.position.x = cube.position.x;
         light.position.z = cube.position.z;
     });
@@ -54,27 +63,28 @@ const initLights = () => {
         cube.position.z = Math.round((cube.position.z + halfGrd) / grid) * grid - halfGrd;
         light.position.x = cube.position.x;
         light.position.z = cube.position.z;
+        dragging = true;
     })
 
 }
 
 const initWalls = () => {
-    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 200), new THREE.MeshBasicMaterial({color: "red"}));
+    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 200), new THREE.MeshStandardMaterial({color: "red"}));
     wall1.castShadow = true
-    // wall1.receiveShadow = true
+    wall1.receiveShadow = true
     wall1.position.x = -100;
     scene.add(wall1)
-    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 400), new THREE.MeshBasicMaterial({color: "blue"}));
+    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 400), new THREE.MeshStandardMaterial({color: "blue"}));
     wall2.castShadow = true;
-    // wall2.receiveShadow = true;
+    wall2.receiveShadow = true;
     wall2.position.x = 100;
     scene.add(wall2)
 };
 
 
 const init = () => {
-    // camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000.0);
-    camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, 0.1, 10000);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000.0);
+    // camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, 0.1, 10000);
     camera.position.set(0, 700, 0)
     // camera.zoom = 0.5
 
@@ -88,7 +98,7 @@ const init = () => {
     // renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.shadowMap.enabled = true
     controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableRotate = false
+    controls.enableRotate = false;
 
     watch(app, (newValue) => {
         if (!newValue) return
@@ -101,13 +111,34 @@ const init = () => {
     initWalls();
 }
 
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+
+const onPointerMove = (event) => {
+    pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+    pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+}
+
+
 const animate = () => {
     requestAnimationFrame(animate);
+    raycaster.setFromCamera( pointer, camera );
+
+    // calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects( scene.children , false);
+
+    // for ( let i = 0; i < intersects.length; i ++ ) {
+    //     intersects[ i ].object.material.color.set( 0xff0000 );
+    // }
+    // console.log(intersects.slice(-1)[0]?.object);
+    controls.enableRotate = dragging
 
     renderer.render(scene, camera);
 }
 
 init();
+window.addEventListener( 'pointermove', onPointerMove );
 animate();
 </script>
 
