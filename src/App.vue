@@ -205,27 +205,31 @@ const animate = () => {
     const newMouseCoords = findLocationFromCoords(mouseMoveCoords[0], mouseMoveCoords[1])
 
     if (newMouseCoords.length !== 0 && walls[wallWorkingIndex]) {
-        const angle = Math.atan(Math.abs(points[0].z - newMouseCoords[1]) / Math.abs(points[0].x - newMouseCoords[0]));
-
+        const angle = Math.atan(Math.abs(points[0].z - newMouseCoords[1]) / Math.abs(points[0].x - newMouseCoords[0])) || 0;
+        // TODO: REFACTORIZAM AICI MATEMATICA SAU IGNOIRAM CA SAR CAPETELE PERETIILOR
         console.log("angle", angle, "rad");
         const widthX = Math.sin(angle) * 5;
-        const widthY = Math.cos(angle) * 5 *( ((globalClick.z > newMouseCoords[1] && globalClick.x > newMouseCoords[0]) || (globalClick.z < newMouseCoords[1] && globalClick.x < newMouseCoords[0])) ? -1 : 1);
+        const widthY = Math.cos(angle) * 5 * (((globalClick.z > newMouseCoords[1] && globalClick.x > newMouseCoords[0]) || (globalClick.z < newMouseCoords[1] && globalClick.x < newMouseCoords[0])) ? -1 : 1);
 
         points[1].z = globalClick.z + widthY;
         points[5].z = globalClick.z + widthY;
+        points[0].z = globalClick.z - widthY;
+        points[4].z = globalClick.z - widthY;
 
         points[1].x = globalClick.x + widthX;
         points[5].x = globalClick.x + widthX;
+        points[0].x = globalClick.x - widthX;
+        points[4].x = globalClick.x - widthX;
 
         points[2].x = newMouseCoords[0] + widthX
         points[2].z = newMouseCoords[1] + widthY
-        points[3].x = newMouseCoords[0]
-        points[3].z = newMouseCoords[1]
+        points[3].x = newMouseCoords[0] - widthX
+        points[3].z = newMouseCoords[1] - widthY
 
         points[6].x = newMouseCoords[0] + widthX
         points[6].z = newMouseCoords[1] + widthY
-        points[7].x = newMouseCoords[0]
-        points[7].z = newMouseCoords[1]
+        points[7].x = newMouseCoords[0] - widthX
+        points[7].z = newMouseCoords[1] - widthY
 
         walls[wallWorkingIndex].geometry = new ConvexGeometry(points)
 
