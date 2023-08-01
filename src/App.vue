@@ -7,6 +7,8 @@ import {ConvexGeometry} from "three/addons/geometries/ConvexGeometry.js";
 import Stats from 'stats.js'
 import {ProgressiveLightMap} from "three/addons/misc/ProgressiveLightMap.js";
 import {PCFSoftShadowMap} from "three";
+import {adjustableShape} from "./adjustableShape.js";
+import {GUI} from "three/addons/libs/lil-gui.module.min.js";
 
 const app = ref(null)
 
@@ -16,15 +18,19 @@ let mouseMoveCoords = []
 let points = []
 let click = []
 let progressiveSurfacemap;
-
+let rayCaster;
+const controlPoints = [];
+let mouse = new THREE.Vector2();
 let walls = [];
 let wallWorkingIndex = 0;
-const params = { 'Enable': true, 'Blur Edges': true, 'Blend Window': 200,
-    'Light Radius': 50, 'Ambient Weight': 0.5, 'Debug Lightmap': false };
-
+let plane;
 const stats = new Stats()
 stats.showPanel(0) // 0: fps, 1: ms, 2: mb, 3+: custom
 document.body.appendChild(stats.dom)
+
+let enableRotation = false;
+let wallTension = ref(0);
+let lightColor = ref(0xffffff);
 
 const initGround = () => {
     const groundTexture = new THREE.TextureLoader().load('./map.jpg')
@@ -47,12 +53,11 @@ const initGround = () => {
 }
 
 const initLights = ({x, y, z}) => {
-    const light = new THREE.PointLight(0xffffff, 1000, 500, 1);
+    const light = new THREE.PointLight(lightColor.value, 1000, 500, 1);
     light.position.set(x, y, z);
     light.castShadow = true;
 
     scene.add(light);
-    console.log(light.visible)
 
     const geometry = new THREE.SphereGeometry(20);
     const material = new THREE.MeshBasicMaterial({color: "orange"});
@@ -67,8 +72,6 @@ const initLights = ({x, y, z}) => {
     const controls = new DragControls([cube], camera, renderer.domElement);
 
     controls.addEventListener('drag', (event) => {
-        // cube.position.x = Math.round(cube.position.x / 20) * 20;
-        // cube.position.z = Math.round(cube.position.z / 20) * 20;
         light.position.x = cube.position.x;
         light.position.z = cube.position.z;
     });
@@ -84,28 +87,15 @@ const initLights = ({x, y, z}) => {
 
         light.position.set(cube.position.x, cube.position.y, cube.position.z)
         renderer.shadowMap.needsUpdate = true
-        // light.position.x = cube.position.x;
-        // light.position.z = cube.position.z;
-        // light.needsUpdate = true
+
     })
 
+    watch(lightColor, (newValue) => {
+       light.color.set(newValue)
+    })
 }
 
-const initWalls = () => {
-    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 200), new THREE.MeshPhongMaterial({ color: 0xffffff, depthWrite: true }));
-    console.log(wall1)
-    wall1.castShadow = true
-    wall1.receiveShadow = true
-    wall1.position.x = -100;
-    scene.add(wall1)
-    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 400), new THREE.MeshPhongMaterial({ color: 0xffffff, depthWrite: true }));
-    wall2.castShadow = true;
-    wall2.receiveShadow = true;
-    wall2.position.x = 100;
-    scene.add(wall2)
-    progressiveSurfacemap.addObjectsToLightMap( walls );
 
-};
 
 const findLocationFromCoords = (x, y) => {
     const reycaster = new THREE.Raycaster()
@@ -120,83 +110,43 @@ const findLocationFromCoords = (x, y) => {
     return [intersectedObjects[0].point.x, intersectedObjects[0].point.z]
 }
 
-const initLine = (x, y) => {
-    const [clickX, clickY] = findLocationFromCoords(x, y)
-    click[0] = clickX
-    click[1] = clickY
-    if (!clickX) return
-
-    const material = new THREE.LineBasicMaterial({color: 0x0000ff});
-
-    const points = [];
-    points.push(new THREE.Vector3(clickX, 0, clickY));
-    points.push(new THREE.Vector3(clickX + 200, 0, clickY + 200));
-
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    line = new THREE.Line(geometry, material);
-    line.castShadow = true
-
-    scene.add(line);
-    isBuilding = true;
-}
-
-const createNewGeometry = () => {
-    const wallShape = new THREE.Shape();
-    wallShape.setFromPoints(points)
-
-    return new THREE.ExtrudeGeometry([wallShape], {
-        depth: 10,
-        bevelEnabled: false,
-    });
-}
 
 const globalClick = {x: 0, z: 0};
-
-const testShape = (x, y) => {
-    if (walls[wallWorkingIndex]) {
-        wallWorkingIndex++;
-        points = []
-        return;
-    }
-
-    const [clickX, clickY] = findLocationFromCoords(x, y)
-    if (!clickX) return
-
-    globalClick.x = clickX;
-    globalClick.z = clickY;
-    points.push(new THREE.Vector3(clickX, 0, clickY)); // original-click 0
-    points.push(new THREE.Vector3(clickX, 0, clickY + 10)); // original-click 1 horizontal
-    points.push(new THREE.Vector3(clickX + 2, 0, clickY + 10)); // 2
-    points.push(new THREE.Vector3(clickX + 2, 0, clickY)); // 3
-
-    points.push(new THREE.Vector3(clickX, 10, clickY)); // original-click 4
-    points.push(new THREE.Vector3(clickX, 10, clickY + 10)); // original-click 5 horizontal
-    points.push(new THREE.Vector3(clickX + 2, 10, clickY + 10)); // 6
-    points.push(new THREE.Vector3(clickX + 2, 10, clickY)); //7
-
-    const wallGeometry = new ConvexGeometry(points)
-
-    walls[wallWorkingIndex] = new THREE.Mesh(wallGeometry, new THREE.MeshBasicMaterial({
-        color: 'red',
-        wireframe: false
-    }));
-
-    walls[wallWorkingIndex].castShadow = true;
-
-    scene.add(walls[wallWorkingIndex])
-}
 
 const getRandomInt = (max) => {
     return Math.ceil(Math.random() * max) * (Math.round(Math.random()) ? 1 : -1)
 }
+const createPoint = (position, color = 'white') => {
+    const viewGeometry = new THREE.BoxGeometry(15, 50, 15, 1, 3, 1);
+    viewGeometry.translate(0, .75, 0);
+    const viewMaterial = new THREE.MeshBasicMaterial({color: color, wireframe: false, transparent: true, opacity: .5});
+    const view = new THREE.Mesh(viewGeometry, viewMaterial);
+    view.position.copy(position);
+    scene.add(view);
+    return view;
+}
 
+const initGUI = () => {
+    const panel = new GUI( { width: 310 } );
+    const settings = {
+        "enable rotation": false,
+        "wall tension": 0,
+        "light color": 0xffffff
+    }
+    panel.add(settings, "enable rotation").onChange((newValue) => controls.enableRotate = newValue)
+    panel.add(settings, "wall tension", 0, 1, 0.1).onChange((newValue) => wallTension.value = newValue)
+    panel.addColor(settings, "wall tension", 0xffffff ).onChange((newValue) => lightColor.value = newValue)
+}
 const init = () => {
+    rayCaster = new THREE.Raycaster();
+    plane = new THREE.Plane();
+    plane.setFromCoplanarPoints(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1));
     // camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000.0);
     camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, 0.1, 10000);
     camera.position.set(0, 700, 0)
     // camera.zoom = 0.5
 
-    progressiveSurfacemap = new ProgressiveLightMap( renderer, 256 );
+    progressiveSurfacemap = new ProgressiveLightMap(renderer, 256);
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x333333);
@@ -209,79 +159,39 @@ const init = () => {
     renderer.shadowMap.enabled = true
 
     controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableRotate = false // TODO FACI TU DACA VREI SA POTI ROTI CAMERA
+    controls.enableRotate = enableRotation // TODO FACI TU DACA VREI SA POTI ROTI CAMERA
 
+    initGUI()
+
+    controlPoints.push(createPoint(new THREE.Vector3(20, 0,  0)));
+    controlPoints.push(createPoint(new THREE.Vector3( 30, 0, 20)));
+    controlPoints.push(createPoint(new THREE.Vector3( 50, 0,  10)));
+    controlPoints.push(createPoint(new THREE.Vector3( 50, 0,  -30)));
+    controlPoints.push(createPoint(new THREE.Vector3( 0, 0,  0)));
 
     watch(app, (newValue) => {
         if (!newValue) return
 
         newValue.appendChild(renderer.domElement)
-        newValue.addEventListener('click', (event) => {
-            if (event.altKey) testShape(event.clientX, event.clientY)
-        })
-    })
-
-    window.addEventListener('pointermove', (event) => {
-        mouseMoveCoords[0] = event.clientX
-        mouseMoveCoords[1] = event.clientY
     })
 
     initGround();
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 10; i++) {
         initLights({x: getRandomInt(500), y: 10, z: getRandomInt(500)});
     }
-    initWalls();
-    testShape()
+    adjustableShape(scene, controls, rayCaster, controlPoints, plane, mouse, wallTension)
 }
-
+let time = 0;
+let curShift = 0;
 const animate = () => {
     stats.begin()
     requestAnimationFrame(animate);
 
-    const newMouseCoords = findLocationFromCoords(mouseMoveCoords[0], mouseMoveCoords[1])
-
-    if (newMouseCoords.length !== 0 && walls[wallWorkingIndex]) {
-        const angle = Math.atan(Math.abs(points[0].z - newMouseCoords[1]) / Math.abs(points[0].x - newMouseCoords[0])) || 0;
-        // TODO: REFACTORIZAM AICI MATEMATICA SAU IGNOIRAM CA SAR CAPETELE PERETIILOR
-        const widthX = Math.sin(angle) * 5;
-        const widthY = Math.cos(angle) * 5 * (((globalClick.z > newMouseCoords[1] && globalClick.x > newMouseCoords[0]) || (globalClick.z < newMouseCoords[1] && globalClick.x < newMouseCoords[0])) ? -1 : 1);
-
-        points[1].z = globalClick.z + widthY;
-        points[5].z = globalClick.z + widthY;
-        points[0].z = globalClick.z - widthY;
-        points[4].z = globalClick.z - widthY;
-
-        points[1].x = globalClick.x + widthX;
-        points[5].x = globalClick.x + widthX;
-        points[0].x = globalClick.x - widthX;
-        points[4].x = globalClick.x - widthX;
-
-        points[2].x = newMouseCoords[0] + widthX
-        points[2].z = newMouseCoords[1] + widthY
-        points[3].x = newMouseCoords[0] - widthX
-        points[3].z = newMouseCoords[1] - widthY
-
-        points[6].x = newMouseCoords[0] + widthX
-        points[6].z = newMouseCoords[1] + widthY
-        points[7].x = newMouseCoords[0] - widthX
-        points[7].z = newMouseCoords[1] - widthY
-
-        walls[wallWorkingIndex].geometry = new ConvexGeometry(points)
-
-        walls[wallWorkingIndex].geometry.attributes.position.needsUpdate = true
-    }
-
-    if ( params[ 'Enable' ] ) {
-
-        progressiveSurfacemap.update( camera, params[ 'Blend Window' ], params[ 'Blur Edges' ] );
-
-        if ( ! progressiveSurfacemap.firstUpdate ) {
-
-            progressiveSurfacemap.showDebugLightmap( params[ 'Debug Lightmap' ] );
-
-        }
-
-    }
+    rayCaster.setFromCamera(mouse, camera);
+    controlPoints.forEach((cp, idx) => {
+        curShift = (Math.PI / 2) * idx;
+        cp.material.opacity = 0.6 + Math.sin(time - curShift) * .2;
+    });
 
     renderer.render(scene, camera);
     stats.end()
