@@ -7,7 +7,7 @@ import {ConvexGeometry} from "three/addons/geometries/ConvexGeometry.js";
 import Stats from 'stats.js'
 import {ProgressiveLightMap} from "three/addons/misc/ProgressiveLightMap.js";
 import {PCFSoftShadowMap} from "three";
-import {adjustableShape} from "./adjustableShape.js";
+import {adjustableShape, createPoint} from "./adjustableShape.js";
 import {GUI} from "three/addons/libs/lil-gui.module.min.js";
 
 const app = ref(null)
@@ -116,15 +116,6 @@ const globalClick = {x: 0, z: 0};
 const getRandomInt = (max) => {
     return Math.ceil(Math.random() * max) * (Math.round(Math.random()) ? 1 : -1)
 }
-const createPoint = (position, color = 'white') => {
-    const viewGeometry = new THREE.BoxGeometry(15, 50, 15, 1, 3, 1);
-    viewGeometry.translate(0, .75, 0);
-    const viewMaterial = new THREE.MeshBasicMaterial({color: color, wireframe: false, transparent: true, opacity: .5});
-    const view = new THREE.Mesh(viewGeometry, viewMaterial);
-    view.position.copy(position);
-    scene.add(view);
-    return view;
-}
 
 const initGUI = () => {
     const panel = new GUI( { width: 310 } );
@@ -163,11 +154,11 @@ const init = () => {
 
     initGUI()
 
-    controlPoints.push(createPoint(new THREE.Vector3(20, 0,  0)));
-    controlPoints.push(createPoint(new THREE.Vector3( 30, 0, 20)));
-    controlPoints.push(createPoint(new THREE.Vector3( 50, 0,  10)));
-    controlPoints.push(createPoint(new THREE.Vector3( 50, 0,  -30)));
-    controlPoints.push(createPoint(new THREE.Vector3( 0, 0,  0)));
+    controlPoints.push(createPoint(new THREE.Vector3(-47, 0,  4), scene));
+    controlPoints.push(createPoint(new THREE.Vector3( -2, 0, 70), scene));
+    controlPoints.push(createPoint(new THREE.Vector3( 102, 0,  45), scene));
+    controlPoints.push(createPoint(new THREE.Vector3( 84, 0,  -65), scene));
+    controlPoints.push(createPoint(new THREE.Vector3( -4, 0,  -66), scene));
 
     watch(app, (newValue) => {
         if (!newValue) return
