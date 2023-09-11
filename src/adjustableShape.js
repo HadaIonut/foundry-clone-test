@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import {watch} from "vue";
 import {Vector3} from "three";
 
-let centralPoint;
 
 const findCenterOfObject = (points) => {
   const xCenter = points.reduce((acc, cur) => acc + cur.x, 0) / points.length
@@ -14,10 +13,10 @@ const findCenterOfObject = (points) => {
 const createCenterPoint = (controlPoints, scene) => {
   const points = controlPoints.reduce((acc, cur) => [...acc, cur.position], [])
 
-  centralPoint = createPoint(findCenterOfObject(points), scene, 'blue', 'centerPoint')
+  return createPoint(findCenterOfObject(points), scene, 'blue', 'centerPoint')
 }
 
-const createCurveGeometry = (controlPoints, tension) => {
+const createCurveGeometry = (controlPoints, tension, centralPoint) => {
   const pts = [];
   controlPoints.forEach(pt => {
     pts.push(pt.position);
@@ -45,10 +44,10 @@ export const createPoint = (position, scene, color = 'white', objectName = '') =
   return view;
 }
 export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane, mouse, tension) => {
-  createCenterPoint(controlPoints, scene)
+  let centralPoint = createCenterPoint(controlPoints, scene);
 
   const curveMaterial = new THREE.LineBasicMaterial({color: "white"});
-  const curveLine = new THREE.Line(createCurveGeometry(controlPoints, tension), curveMaterial);
+  const curveLine = new THREE.Line(createCurveGeometry(controlPoints, tension, centralPoint), curveMaterial);
 
   const extrudeSettings = {amount: 1, bevelEnabled: false, depth: 20};
   const points = [];
@@ -66,7 +65,7 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
 
   watch(tension, () => {
     curveLine.geometry.dispose();
-    curveLine.geometry = createCurveGeometry(controlPoints, tension);
+    curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
     extrudeMesh()
   })
 
@@ -80,11 +79,10 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
 
   const updateShape = () => {
     curveLine.geometry.dispose();
-    curveLine.geometry = createCurveGeometry(controlPoints, tension);
+    curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
     extrudeMesh()
   }
   const extrudeMesh = () => {
-    console.log(controlPoints)
     curveLine.geometry.vertices.forEach((vertex, index) => {
       points[index].set(vertex.x, vertex.z); // re-use the array
     });
@@ -139,13 +137,13 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
       })
 
       curveLine.geometry.dispose();
-      curveLine.geometry = createCurveGeometry(controlPoints, tension);
+      curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
       extrudeMesh();
     } else {
       rayCaster.ray.intersectPlane(plane, pointOfIntersection);
       dragObject.position.copy(pointOfIntersection).add(shift);
       curveLine.geometry.dispose();
-      curveLine.geometry = createCurveGeometry(controlPoints, tension);
+      curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
       extrudeMesh();
     }
 
