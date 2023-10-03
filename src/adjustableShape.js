@@ -43,7 +43,7 @@ export const createPoint = (position, scene, color = 'white', objectName = '') =
   scene.add(view);
   return view;
 }
-export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane, mouse, tension) => {
+export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane, mouse, tension, handleContextMenu) => {
   let centralPoint = createCenterPoint(controlPoints, scene);
 
   const curveMaterial = new THREE.LineBasicMaterial({color: "white"});
@@ -62,6 +62,13 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
   const pointOfIntersection = new THREE.Vector3();
   const planeNormal = new THREE.Vector3(0, 1, 0);
   const shift = new THREE.Vector3();
+  const shapeGroup = new THREE.Group()
+  shapeGroup.name = 'adjustableShape'
+
+  shapeGroup.add(shapeMesh)
+  shapeGroup.add(curveLine)
+  shapeGroup.add(centralPoint)
+  controlPoints.forEach(point => shapeGroup.add(point))
 
   watch(tension, () => {
     curveLine.geometry.dispose();
@@ -70,8 +77,9 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
   })
 
   shapeMesh.castShadow = true
-  scene.add(shapeMesh);
-  scene.add(curveLine);
+  scene.add(shapeGroup)
+  // scene.add(shapeMesh);
+  // scene.add(curveLine);
 
   curveLine.geometry.vertices.forEach((vertex, index) => {
     points.push(new THREE.Vector2(vertex.x, vertex.z)); // fill the array of points with THREE.Vector2() for re-use
@@ -80,6 +88,8 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
   const updateShape = () => {
     curveLine.geometry.dispose();
     curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
+    controlPoints.forEach(point => shapeGroup.add(point))
+
     extrudeMesh()
   }
   const extrudeMesh = () => {
@@ -96,27 +106,38 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
   }
   extrudeMesh();
 
-  const onMouseDown = () => {
+  const onMouseDown = (event) => {
     const controlPointsIntersection = rayCaster.intersectObjects(controlPoints)
     const centralPointIntersection = rayCaster.intersectObject(centralPoint);
 
-    if (controlPointsIntersection.length) intersects = controlPointsIntersection
-    else intersects = centralPointIntersection
+    if (event.button === 0) {
 
-    if (intersects.length > 0) {
-      controls.enableRotate = false;
-      dragObject = intersects[0].object;
-      plane.setFromNormalAndCoplanarPoint(planeNormal, intersects[0].point);
-      shift.subVectors(dragObject.position, intersects[0].point);
-      dragging = true;
+
+      if (controlPointsIntersection.length) intersects = controlPointsIntersection
+      else intersects = centralPointIntersection
+
+      if (intersects.length > 0) {
+        controls.enableRotate = false;
+        dragObject = intersects[0].object;
+        plane.setFromNormalAndCoplanarPoint(planeNormal, intersects[0].point);
+        shift.subVectors(dragObject.position, intersects[0].point);
+        dragging = true;
+      }
+    }
+    if (event.button === 2) {
+      console.log("rightclick?")
+      if (centralPointIntersection.length) handleContextMenu({top: event.clientY, left: event.clientX})
+      event.preventDefault()
+      return false
     }
 
   }
 
-  const onMouseUp = () => {
+  const onMouseUp = (event) => {
     controls.enableRotate = false;
     dragObject = null;
     dragging = false;
+    event.preventDefault()
   }
 
   const onMouseMove = (event) => {
@@ -152,6 +173,7 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
   window.addEventListener("mousedown", onMouseDown, false);
   window.addEventListener("mouseup", onMouseUp, false);
   window.addEventListener("mousemove", onMouseMove, false);
+  window.addEventListener("contextmenu", (event) => event.preventDefault(), false);
 
   return [updateShape, extrudeMesh]
 }
