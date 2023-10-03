@@ -206,8 +206,10 @@ const init = () => {
     newValue.addEventListener('click', (event) => {
       if (!drawMode.value) return
       const clickLocation = findLocationFromCoords(event.clientX, event.clientY)
+      const newPoint = createPoint(clickLocation, scene)
+      newPoint.userData.groupId = currentDrawingId
 
-      shape[currentDrawingId].controlPoints.push(createPoint(clickLocation, scene));
+      shape[currentDrawingId].controlPoints.push(newPoint);
 
       if (shape[currentDrawingId].controlPoints.length === 1) {
         let [updateShape, extrudeMesh] = adjustableShape(scene, controls, rayCaster, shape[currentDrawingId].controlPoints, plane, mouse, wallTension, handleContextMenu)
@@ -253,9 +255,26 @@ const objectDelete = (event) => {
   handleContextMenu({})
 }
 
+const addPointsToObject = () => {
+  const intersections = rayCaster.intersectObjects(scene.children)
+
+  console.log(intersections)
+  intersections.forEach(intersection => {
+    // debugger
+    if(intersection.object.parent.name === 'adjustableShape') {
+      setTimeout(() => {
+        drawMode.value = true
+        currentDrawingId = intersection.object.parent.userData.id
+      },0)
+    }
+  })
+
+  handleContextMenu({})
+}
+
 init();
 animate();
-onClickOutside(contextMenuRef, () => handleContextMenu({}))
+onClickOutside(contextMenuRef, () => handleContextMenu({}, 'none'))
 
 </script>
 
@@ -266,7 +285,7 @@ onClickOutside(contextMenuRef, () => handleContextMenu({}))
     </div>
     <div ref="contextMenuRef" style="display: none; position: absolute; top: 0; left: 0; background: #888888; transform: translateX(-50%)">
       <div style="cursor: pointer;" @click="objectDelete">delete object</div>
-      <div style="cursor: pointer;">option2</div>
+      <div style="cursor: pointer;" @click="addPointsToObject">add points</div>
     </div>
   </div>
 </template>

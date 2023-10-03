@@ -1,6 +1,6 @@
 import * as THREE from 'three'
+import {Vector3} from 'three'
 import {watch} from "vue";
-import {Vector3} from "three";
 
 
 const findCenterOfObject = (points) => {
@@ -89,6 +89,7 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
     curveLine.geometry.dispose();
     curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
     controlPoints.forEach(point => shapeGroup.add(point))
+    shapeGroup.userData.id = controlPoints[0].userData.groupId
 
     extrudeMesh()
   }
@@ -111,7 +112,6 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
     const centralPointIntersection = rayCaster.intersectObject(centralPoint);
 
     if (event.button === 0) {
-
 
       if (controlPointsIntersection.length) intersects = controlPointsIntersection
       else intersects = centralPointIntersection
