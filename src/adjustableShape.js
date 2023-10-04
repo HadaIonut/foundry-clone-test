@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import {Vector3} from 'three'
 import {watch} from "vue";
+import concaveman from "concaveman";
 
 
 const findCenterOfObject = (points) => {
@@ -17,10 +18,13 @@ const createCenterPoint = (controlPoints, scene) => {
 }
 
 const createCurveGeometry = (controlPoints, tension, centralPoint) => {
-  const pts = [];
+  let pts = [];
   controlPoints.forEach(pt => {
-    pts.push(pt.position);
+    pts.push([pt.position.x, pt.position.z]);
   });
+  // debugger
+  pts = concaveman(pts)
+  pts = pts.map(pt => new THREE.Vector3(pt[0], 0, pt[1]))
   const curve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', tension.value);
   curve.closed = true;
   const curveGeometry = new THREE.BufferGeometry();
@@ -50,7 +54,7 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
   const curveLine = new THREE.Line(createCurveGeometry(controlPoints, tension, centralPoint), curveMaterial);
 
   const extrudeSettings = {amount: 1, bevelEnabled: false, depth: 20};
-  const points = [];
+  let points = [];
   let shape = null;
   let shapeGeometry;
   const shapeMaterial = new THREE.MeshBasicMaterial({color: 'red'})
@@ -78,8 +82,6 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
 
   shapeMesh.castShadow = true
   scene.add(shapeGroup)
-  // scene.add(shapeMesh);
-  // scene.add(curveLine);
 
   curveLine.geometry.vertices.forEach((vertex, index) => {
     points.push(new THREE.Vector2(vertex.x, vertex.z)); // fill the array of points with THREE.Vector2() for re-use
@@ -126,7 +128,7 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
     }
     if (event.button === 2) {
       console.log("rightclick?")
-      if (centralPointIntersection.length) handleContextMenu({top: event.clientY, left: event.clientX})
+      if (centralPointIntersection.length) handleContextMenu({top: event.clientY, left: event.clientX}, centralPointIntersection[0].object)
       event.preventDefault()
       return false
     }

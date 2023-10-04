@@ -40,13 +40,15 @@ let shape = {}
 let currentDrawingId;
 
 let contextMenuRef = ref(null)
+let contextMenuTargetedObject = null
 
-const handleContextMenu = (position, visibility) => {
+const handleContextMenu = (position, targetedObject, visibility) => {
   if (visibility) contextMenuRef.value.style.display = visibility
   else {
     if (contextMenuRef.value.style.display === 'none') contextMenuRef.value.style.display = 'block'
     else contextMenuRef.value.style.display = 'none'
   }
+  if (targetedObject) contextMenuTargetedObject = targetedObject
   // debugger
   contextMenuRef.value.style.top = `${position.top}px`
   contextMenuRef.value.style.left = `${position.left}px`
@@ -245,36 +247,26 @@ const animate = () => {
 }
 
 const objectDelete = (event) => {
-  const intersections = rayCaster.intersectObjects(scene.children)
-
-  intersections.forEach(intersection => {
-    // debugger
-    if(intersection.object.parent.name === 'adjustableShape') intersection.object.parent.removeFromParent()
-  })
+  if(contextMenuTargetedObject.parent.name === 'adjustableShape') contextMenuTargetedObject.parent.removeFromParent()
 
   handleContextMenu({})
 }
 
 const addPointsToObject = () => {
-  const intersections = rayCaster.intersectObjects(scene.children)
 
-  console.log(intersections)
-  intersections.forEach(intersection => {
-    // debugger
-    if(intersection.object.parent.name === 'adjustableShape') {
-      setTimeout(() => {
-        drawMode.value = true
-        currentDrawingId = intersection.object.parent.userData.id
-      },0)
-    }
-  })
+  if(contextMenuTargetedObject.parent.name === 'adjustableShape') {
+    setTimeout(() => {
+      drawMode.value = true
+      currentDrawingId = contextMenuTargetedObject.parent.userData.id
+    },0)
+  }
 
   handleContextMenu({})
 }
 
 init();
 animate();
-onClickOutside(contextMenuRef, () => handleContextMenu({}, 'none'))
+onClickOutside(contextMenuRef, () => handleContextMenu({}, undefined ,'none'))
 
 </script>
 
@@ -284,8 +276,8 @@ onClickOutside(contextMenuRef, () => handleContextMenu({}, 'none'))
          @click="drawModeToggleFunction">test
     </div>
     <div ref="contextMenuRef" style="display: none; position: absolute; top: 0; left: 0; background: #888888; transform: translateX(-50%)">
-      <div style="cursor: pointer;" @click="objectDelete">delete object</div>
       <div style="cursor: pointer;" @click="addPointsToObject">add points</div>
+      <div style="cursor: pointer;" @click="objectDelete">delete object</div>
     </div>
   </div>
 </template>
