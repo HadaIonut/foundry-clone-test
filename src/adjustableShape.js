@@ -23,7 +23,7 @@ const createCurveGeometry = (controlPoints, tension, centralPoint) => {
     pts.push([pt.position.x, pt.position.z]);
   });
   // debugger
-  pts = concaveman(pts)
+  pts = concaveman(pts, 1)
   pts = pts.map(pt => new THREE.Vector3(pt[0], 0, pt[1]))
   const curve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', tension.value);
   curve.closed = true;
