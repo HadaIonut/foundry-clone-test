@@ -2,8 +2,9 @@ import * as THREE from 'three'
 import {Vector3} from 'three'
 import {watch} from "vue";
 import concaveman from "concaveman";
+import {WallGeometry} from "./canvasComponents/WallGeometry.js";
 
-
+let fuckCurves
 const findCenterOfObject = (points) => {
   const xCenter = points.reduce((acc, cur) => acc + cur.x, 0) / points.length
   const zCenter = points.reduce((acc, cur) => acc + cur.z, 0) / points.length
@@ -17,15 +18,21 @@ const createCenterPoint = (controlPoints, scene) => {
   return createPoint(findCenterOfObject(points), scene, 'blue', 'centerPoint')
 }
 
-const createCurveGeometry = (controlPoints, tension, centralPoint) => {
+const createCurveGeometry = (controlPoints, tension, centralPoint, concaveHull, closed) => {
   let pts = [];
   controlPoints.forEach(pt => {
     pts.push([pt.position.x, pt.position.z]);
   });
-  pts = concaveman(pts, 1)
+  if (concaveHull) {
+    pts = concaveman(pts, 1)
+    if (!closed) pts.pop()
+  }
+
   pts = pts.map(pt => new THREE.Vector3(pt[0], 0, pt[1]))
-  const curve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', tension.value);
-  curve.closed = true;
+
+  if (pts.length <= 1) return {}
+
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', tension.value);
   const curveGeometry = new THREE.BufferGeometry();
   curveGeometry.vertices = curve.getPoints(75);
   curveGeometry.translate(0, 1, 0);
@@ -33,7 +40,7 @@ const createCurveGeometry = (controlPoints, tension, centralPoint) => {
   const newCenterLocation = findCenterOfObject(pts)
   centralPoint.position.set(newCenterLocation.x, newCenterLocation.y, newCenterLocation.z)
 
-  return curveGeometry;
+  return {curveGeometry, curve};
 }
 
 export const createPoint = (position, scene, color = 'white', objectName = 'controlPoint') => {
@@ -46,7 +53,19 @@ export const createPoint = (position, scene, color = 'white', objectName = 'cont
   scene.add(view);
   return view;
 }
-export const adjustableShape = (scene, controls, rayCaster, originPoint , plane, mouse, tension, handleContextMenu) => {
+export const adjustableShape = ({
+                                  scene,
+                                  controls,
+                                  rayCaster,
+                                  originPoint,
+                                  plane,
+                                  mouse,
+                                  tension,
+                                  filled = true,
+                                  closed = false,
+                                  concaveHull = true,
+                                  handleContextMenu
+                                }) => {
   const shapeGroup = new THREE.Group()
   shapeGroup.add(originPoint)
   let controlPoints = shapeGroup.children.filter((child) => child.name === 'controlPoint')
@@ -54,13 +73,14 @@ export const adjustableShape = (scene, controls, rayCaster, originPoint , plane,
   let centralPoint = createCenterPoint(controlPoints, scene);
 
   const curveMaterial = new THREE.LineBasicMaterial({color: "white"});
-  const curveLine = new THREE.Line(createCurveGeometry(controlPoints, tension, centralPoint), curveMaterial);
+  let {curveGeometry, curve} = createCurveGeometry(controlPoints, tension, centralPoint, concaveHull, closed)
+  const curveLine = new THREE.Line(curveGeometry, curveMaterial);
 
   const extrudeSettings = {amount: 1, bevelEnabled: false, depth: 20};
   let points = [];
   let shape = null;
   let shapeGeometry;
-  const shapeMaterial = new THREE.MeshBasicMaterial({color: 'red'})
+  const shapeMaterial = new THREE.MeshBasicMaterial({color: 'red', side: THREE.DoubleSide})
   const shapeMesh = new THREE.Mesh(shapeGeometry, shapeMaterial);
 
   let intersects;
@@ -76,22 +96,33 @@ export const adjustableShape = (scene, controls, rayCaster, originPoint , plane,
   shapeGroup.add(centralPoint)
 
   watch(tension, () => {
+    if (controlPoints.length === 0) return
+    let curveObj = createCurveGeometry(controlPoints, tension, centralPoint, concaveHull, closed)
+    curveGeometry = curveObj.curveGeometry
+    curve = curveObj.curve
     curveLine.geometry.dispose();
-    curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
+    curveLine.geometry = curveGeometry
     extrudeMesh()
   })
 
   shapeMesh.castShadow = true
   scene.add(shapeGroup)
 
-  curveLine.geometry.vertices.forEach((vertex, index) => {
-    points.push(new THREE.Vector2(vertex.x, vertex.z)); // fill the array of points with THREE.Vector2() for re-use
-  });
+  if (controlPoints.length !== 1) {
+    curveLine.geometry.vertices.forEach((vertex, index) => {
+      points.push(new THREE.Vector2(vertex.x, vertex.z)); // fill the array of points with THREE.Vector2() for re-use
+    });
+  }
 
   const updateShape = () => {
     controlPoints = shapeGroup.children.filter((child) => child.name === 'controlPoint')
+
+    if (controlPoints.length === 1) return
+    let curveObj = createCurveGeometry(controlPoints, tension, centralPoint, concaveHull, closed)
+    curveGeometry = curveObj.curveGeometry
+    curve = curveObj.curve
     curveLine.geometry.dispose();
-    curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
+    curveLine.geometry = curveGeometry
     controlPoints.forEach(point => shapeGroup.add(point))
     shapeGroup.userData.id = controlPoints[0].userData.groupId
 
@@ -99,18 +130,25 @@ export const adjustableShape = (scene, controls, rayCaster, originPoint , plane,
   }
   const extrudeMesh = () => {
     curveLine.geometry.vertices.forEach((vertex, index) => {
-      points[index].set(vertex.x, vertex.z); // re-use the array
+      if (points[index]) points[index].set(vertex.x, vertex.z); // re-use the array
+      else points[index] = new THREE.Vector2(vertex.x, vertex.z); // re-use the array
     });
 
-    shape = new THREE.Shape(points);
-    shapeGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    shapeGeometry.rotateX(Math.PI * .5);
-    shapeGeometry.translate(0, 20, 0);
+    if (filled) {
+      shape = new THREE.Shape(points);
+      shape.autoClose = false
+      shapeGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      shapeGeometry.rotateX(Math.PI * .5);
+    } else {
+      shapeGeometry = new WallGeometry(curve, 75 * controlPoints.length, 2, 10, 8, false);
+    }
+    shapeGeometry.translate(0, 10, 0);
     shapeMesh.geometry.dispose();
     shapeMesh.geometry = shapeGeometry;
   }
-  extrudeMesh();
-
+  if (controlPoints.length !== 1) {
+    extrudeMesh();
+  }
   const onMouseDown = (event) => {
     const controlPointsIntersection = rayCaster.intersectObjects(controlPoints)
     const centralPointIntersection = rayCaster.intersectObject(centralPoint);
@@ -130,7 +168,6 @@ export const adjustableShape = (scene, controls, rayCaster, originPoint , plane,
     }
     if (event.button === 2) {
       if (centralPointIntersection.length || controlPointsIntersection.length) {
-        console.log(centralPointIntersection?.[0]?.object ?? controlPointsIntersection?.[0]?.object)
         handleContextMenu({
           top: event.clientY,
           left: event.clientX
@@ -154,6 +191,10 @@ export const adjustableShape = (scene, controls, rayCaster, originPoint , plane,
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     if (intersects?.length === 0 || !dragging) return;
 
+    let curveObj = createCurveGeometry(controlPoints, tension, centralPoint, concaveHull, closed)
+    curveGeometry = curveObj.curveGeometry
+    curve = curveObj.curve
+
     if (intersects[0].object.name === 'centerPoint') {
       const oldObjectPosition = dragObject.position.clone()
       rayCaster.ray.intersectPlane(plane, pointOfIntersection);
@@ -167,13 +208,13 @@ export const adjustableShape = (scene, controls, rayCaster, originPoint , plane,
       })
 
       curveLine.geometry.dispose();
-      curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
+      curveLine.geometry = curveGeometry
       extrudeMesh();
     } else {
       rayCaster.ray.intersectPlane(plane, pointOfIntersection);
       dragObject.position.copy(pointOfIntersection).add(shift);
       curveLine.geometry.dispose();
-      curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
+      curveLine.geometry = curveGeometry
       extrudeMesh();
     }
 

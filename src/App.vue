@@ -52,7 +52,6 @@ const handleContextMenu = (position, targetedObject, visibility) => {
   // debugger
   contextMenuRef.value.style.top = `${position.top}px`
   contextMenuRef.value.style.left = `${position.left}px`
-  console.log(contextMenuTargetedObject, targetedObject)
 }
 
 const drawModeToggleFunction = (event) => {
@@ -179,7 +178,7 @@ const init = () => {
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableRotate = enableRotation // TODO FACI TU DACA VREI SA POTI ROTI CAMERA
-  controls.enabled = false // TODO FACI TU DACA VREI SA POTI ROTI CAMERA
+  controls.enabled = true // TODO FACI TU DACA VREI SA POTI ROTI CAMERA
 
   initGUI()
 
@@ -199,7 +198,19 @@ const init = () => {
       const newPoint = createPoint(clickLocation, scene)
 
       if (!shape[currentDrawingId]) {
-        let [updateShape, extrudeMesh, object] = adjustableShape(scene, controls, rayCaster, newPoint ,plane, mouse, wallTension, handleContextMenu)
+        let [updateShape, extrudeMesh, object] = adjustableShape({
+          scene,
+          controls,
+          rayCaster,
+          originPoint: newPoint,
+          plane,
+          mouse,
+          tension: wallTension,
+          filled: false,
+          closed: false,
+          concaveHull: false,
+          handleContextMenu
+        })
         currentDrawingId = object.uuid
         shape[currentDrawingId] = {
           object,
@@ -235,17 +246,17 @@ const animate = () => {
 }
 
 const objectDelete = (event) => {
-  if(contextMenuTargetedObject.value.parent.name === 'adjustableShape') contextMenuTargetedObject.value.parent.removeFromParent()
+  if (contextMenuTargetedObject.value.parent.name === 'adjustableShape') contextMenuTargetedObject.value.parent.removeFromParent()
 
   handleContextMenu({})
 }
 
 const addPointsToObject = () => {
-  if(contextMenuTargetedObject.value.parent.name === 'adjustableShape') {
+  if (contextMenuTargetedObject.value.parent.name === 'adjustableShape') {
     setTimeout(() => {
       drawMode.value = true
       currentDrawingId = contextMenuTargetedObject.value.parent.uuid
-    },0)
+    }, 0)
   }
 
   handleContextMenu({})
@@ -262,7 +273,7 @@ const removePointFromObject = () => {
 
 init();
 animate();
-onClickOutside(contextMenuRef, () => handleContextMenu({}, undefined ,'none'))
+onClickOutside(contextMenuRef, () => handleContextMenu({}, undefined, 'none'))
 
 </script>
 
@@ -271,9 +282,12 @@ onClickOutside(contextMenuRef, () => handleContextMenu({}, undefined ,'none'))
     <div :style="`position: absolute; top: 100px; color: white; background:${drawMode ? 'pink' : 'darkslategray'} `"
          @click="drawModeToggleFunction">test
     </div>
-    <div ref="contextMenuRef" style="display: none; position: absolute; top: 0; left: 0; background: #888888; transform: translateX(-50%)">
+    <div ref="contextMenuRef"
+         style="display: none; position: absolute; top: 0; left: 0; background: #888888; transform: translateX(-50%)">
       <div style="cursor: pointer;" @click="addPointsToObject">add points</div>
-      <div style="cursor: pointer;" @click="removePointFromObject" v-if="contextMenuTargetedObject?.name === 'controlPoint'">remove point</div>
+      <div style="cursor: pointer;" @click="removePointFromObject"
+           v-if="contextMenuTargetedObject?.name === 'controlPoint'">remove point
+      </div>
       <div style="cursor: pointer;" @click="objectDelete">delete object</div>
     </div>
   </div>
