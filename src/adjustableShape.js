@@ -22,7 +22,6 @@ const createCurveGeometry = (controlPoints, tension, centralPoint) => {
   controlPoints.forEach(pt => {
     pts.push([pt.position.x, pt.position.z]);
   });
-  // debugger
   pts = concaveman(pts, 1)
   pts = pts.map(pt => new THREE.Vector3(pt[0], 0, pt[1]))
   const curve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', tension.value);
@@ -37,7 +36,7 @@ const createCurveGeometry = (controlPoints, tension, centralPoint) => {
   return curveGeometry;
 }
 
-export const createPoint = (position, scene, color = 'white', objectName = '') => {
+export const createPoint = (position, scene, color = 'white', objectName = 'controlPoint') => {
   const viewGeometry = new THREE.BoxGeometry(15, 50, 15, 1, 3, 1);
   viewGeometry.translate(0, .75, 0);
   const viewMaterial = new THREE.MeshBasicMaterial({color: color, wireframe: false, transparent: true, opacity: .5});
@@ -47,7 +46,11 @@ export const createPoint = (position, scene, color = 'white', objectName = '') =
   scene.add(view);
   return view;
 }
-export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane, mouse, tension, handleContextMenu) => {
+export const adjustableShape = (scene, controls, rayCaster, originPoint , plane, mouse, tension, handleContextMenu) => {
+  const shapeGroup = new THREE.Group()
+  shapeGroup.add(originPoint)
+  let controlPoints = shapeGroup.children.filter((child) => child.name === 'controlPoint')
+
   let centralPoint = createCenterPoint(controlPoints, scene);
 
   const curveMaterial = new THREE.LineBasicMaterial({color: "white"});
@@ -66,13 +69,11 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
   const pointOfIntersection = new THREE.Vector3();
   const planeNormal = new THREE.Vector3(0, 1, 0);
   const shift = new THREE.Vector3();
-  const shapeGroup = new THREE.Group()
   shapeGroup.name = 'adjustableShape'
 
   shapeGroup.add(shapeMesh)
   shapeGroup.add(curveLine)
   shapeGroup.add(centralPoint)
-  controlPoints.forEach(point => shapeGroup.add(point))
 
   watch(tension, () => {
     curveLine.geometry.dispose();
@@ -88,6 +89,7 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
   });
 
   const updateShape = () => {
+    controlPoints = shapeGroup.children.filter((child) => child.name === 'controlPoint')
     curveLine.geometry.dispose();
     curveLine.geometry = createCurveGeometry(controlPoints, tension, centralPoint);
     controlPoints.forEach(point => shapeGroup.add(point))
@@ -127,8 +129,13 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
       }
     }
     if (event.button === 2) {
-      console.log("rightclick?")
-      if (centralPointIntersection.length) handleContextMenu({top: event.clientY, left: event.clientX}, centralPointIntersection[0].object)
+      if (centralPointIntersection.length || controlPointsIntersection.length) {
+        console.log(centralPointIntersection?.[0]?.object ?? controlPointsIntersection?.[0]?.object)
+        handleContextMenu({
+          top: event.clientY,
+          left: event.clientX
+        }, centralPointIntersection?.[0]?.object ?? controlPointsIntersection?.[0]?.object)
+      }
       event.preventDefault()
       return false
     }
@@ -177,6 +184,6 @@ export const adjustableShape = (scene, controls, rayCaster, controlPoints, plane
   window.addEventListener("mousemove", onMouseMove, false);
   window.addEventListener("contextmenu", (event) => event.preventDefault(), false);
 
-  return [updateShape, extrudeMesh]
+  return [updateShape, extrudeMesh, shapeGroup]
 }
 

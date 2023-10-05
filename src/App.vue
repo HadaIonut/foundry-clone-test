@@ -1,6 +1,6 @@
 <script setup>
 import * as THREE from 'three'
-import {ref, watch} from "vue";
+import {reactive, ref, watch} from "vue";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 import {DragControls} from "three/addons/controls/DragControls.js";
 import {ConvexGeometry} from "three/addons/geometries/ConvexGeometry.js";
@@ -37,10 +37,10 @@ let enableRotation = false;
 let wallTension = ref(0);
 let lightColor = ref(0xffffff);
 let shape = {}
-let currentDrawingId;
+let currentDrawingId = null;
 
 let contextMenuRef = ref(null)
-let contextMenuTargetedObject = null
+let contextMenuTargetedObject = ref(null)
 
 const handleContextMenu = (position, targetedObject, visibility) => {
   if (visibility) contextMenuRef.value.style.display = visibility
@@ -48,23 +48,17 @@ const handleContextMenu = (position, targetedObject, visibility) => {
     if (contextMenuRef.value.style.display === 'none') contextMenuRef.value.style.display = 'block'
     else contextMenuRef.value.style.display = 'none'
   }
-  if (targetedObject) contextMenuTargetedObject = targetedObject
+  if (targetedObject) contextMenuTargetedObject.value = targetedObject
   // debugger
   contextMenuRef.value.style.top = `${position.top}px`
   contextMenuRef.value.style.left = `${position.left}px`
+  console.log(contextMenuTargetedObject, targetedObject)
 }
 
 const drawModeToggleFunction = (event) => {
   event.stopPropagation()
   drawMode.value = !drawMode.value;
-  if (!drawMode.value) return;
-  currentDrawingId = randomId()
-
-  shape[currentDrawingId] = {
-    controlPoints: [],
-    updateFunction: null,
-    redrawFunction: null
-  }
+  currentDrawingId = null
 }
 
 const initGround = () => {
@@ -189,12 +183,6 @@ const init = () => {
 
   initGUI()
 
-  // controlPoints.push(createPoint(new THREE.Vector3(-47, 0,  4), scene));
-  // controlPoints.push(createPoint(new THREE.Vector3( -2, 0, 70), scene));
-  // controlPoints.push(createPoint(new THREE.Vector3( 102, 0,  45), scene));
-  // controlPoints.push(createPoint(new THREE.Vector3( 84, 0,  -65), scene));
-  // controlPoints.push(createPoint(new THREE.Vector3( -4, 0,  -66), scene));
-
   interactionManager = new InteractionManager(
     renderer,
     camera,
@@ -209,16 +197,18 @@ const init = () => {
       if (!drawMode.value) return
       const clickLocation = findLocationFromCoords(event.clientX, event.clientY)
       const newPoint = createPoint(clickLocation, scene)
-      newPoint.userData.groupId = currentDrawingId
 
-      shape[currentDrawingId].controlPoints.push(newPoint);
-
-      if (shape[currentDrawingId].controlPoints.length === 1) {
-        let [updateShape, extrudeMesh] = adjustableShape(scene, controls, rayCaster, shape[currentDrawingId].controlPoints, plane, mouse, wallTension, handleContextMenu)
-        shape[currentDrawingId].updateFunction = updateShape;
-        shape[currentDrawingId].redrawFunction = extrudeMesh;
+      if (!shape[currentDrawingId]) {
+        let [updateShape, extrudeMesh, object] = adjustableShape(scene, controls, rayCaster, newPoint ,plane, mouse, wallTension, handleContextMenu)
+        currentDrawingId = object.uuid
+        shape[currentDrawingId] = {
+          object,
+          updateShape,
+          extrudeMesh
+        }
       }
-      shape[currentDrawingId].updateFunction()
+      shape[currentDrawingId].object.add(newPoint);
+      shape[currentDrawingId].updateShape()
     })
   })
 
@@ -226,8 +216,6 @@ const init = () => {
   for (let i = 0; i < 10; i++) {
     initLights({x: getRandomInt(500), y: 10, z: getRandomInt(500)});
   }
-
-  if (controlPoints.length > 0) adjustableShape(scene, controls, rayCaster, controlPoints, plane, mouse, wallTension, handleContextMenu)
 }
 let time = 0;
 let curShift = 0;
@@ -247,21 +235,29 @@ const animate = () => {
 }
 
 const objectDelete = (event) => {
-  if(contextMenuTargetedObject.parent.name === 'adjustableShape') contextMenuTargetedObject.parent.removeFromParent()
+  if(contextMenuTargetedObject.value.parent.name === 'adjustableShape') contextMenuTargetedObject.value.parent.removeFromParent()
 
   handleContextMenu({})
 }
 
 const addPointsToObject = () => {
-
-  if(contextMenuTargetedObject.parent.name === 'adjustableShape') {
+  if(contextMenuTargetedObject.value.parent.name === 'adjustableShape') {
     setTimeout(() => {
       drawMode.value = true
-      currentDrawingId = contextMenuTargetedObject.parent.userData.id
+      currentDrawingId = contextMenuTargetedObject.value.parent.uuid
     },0)
   }
 
   handleContextMenu({})
+}
+
+const removePointFromObject = () => {
+  const workingShapeId = contextMenuTargetedObject.value.parent.uuid
+  const workingShape = shape[workingShapeId]
+  contextMenuTargetedObject.value.removeFromParent()
+  workingShape.updateShape()
+  handleContextMenu({})
+
 }
 
 init();
@@ -277,6 +273,7 @@ onClickOutside(contextMenuRef, () => handleContextMenu({}, undefined ,'none'))
     </div>
     <div ref="contextMenuRef" style="display: none; position: absolute; top: 0; left: 0; background: #888888; transform: translateX(-50%)">
       <div style="cursor: pointer;" @click="addPointsToObject">add points</div>
+      <div style="cursor: pointer;" @click="removePointFromObject" v-if="contextMenuTargetedObject?.name === 'controlPoint'">remove point</div>
       <div style="cursor: pointer;" @click="objectDelete">delete object</div>
     </div>
   </div>
