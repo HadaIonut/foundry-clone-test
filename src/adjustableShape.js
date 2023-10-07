@@ -142,7 +142,7 @@ export const adjustableShape = ({
     } else {
       shapeGeometry = new WallGeometry(curve, 75 * controlPoints.length, 2, 10, 8, false);
     }
-    shapeGeometry.translate(0, 10, 0);
+    shapeGeometry.translate(0, 0, 0);
     shapeMesh.geometry.dispose();
     shapeMesh.geometry = shapeGeometry;
   }
