@@ -145,6 +145,7 @@ export const adjustableShape = ({
     shapeGeometry.translate(0, 0, 0);
     shapeMesh.geometry.dispose();
     shapeMesh.geometry = shapeGeometry;
+    shapeMesh.geometry.computeBoundsTree()
   }
   if (controlPoints.length !== 1) {
     extrudeMesh();

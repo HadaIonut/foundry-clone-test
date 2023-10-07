@@ -13,9 +13,14 @@ import lights_par_beginGlsl from "./shaderOverrides/lights_par_begin.glsl.js"
 import lights_fragment_beginGlsl from "./shaderOverrides/lights_frament_begin.glsl.js"
 import {InteractionManager} from "three.interactive";
 import {onClickOutside} from "@vueuse/core";
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 
 const randomId = (length = 6) => Math.random().toString(36).substring(2, length + 2);
 
+
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 const app = ref(null)
 

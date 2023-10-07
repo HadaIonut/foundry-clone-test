@@ -294,6 +294,11 @@
   "resolved" "https://registry.npmjs.org/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz"
   "version" "1.0.0"
 
+"three-mesh-bvh@^0.6.7":
+  "integrity" "sha512-RYdjMsH+vZvjLwA+ehI4+ZqTaTehAz4iho2yfL5PdGsIHyxpB78g0iy4Emj8079m/9KBX02TzddkvPSKSruQjg=="
+  "resolved" "https://registry.npmjs.org/three-mesh-bvh/-/three-mesh-bvh-0.6.7.tgz"
+  "version" "0.6.7"
+
 "three.interactive@^1.7.0":
   "integrity" "sha512-WuJijcJUT8cxiU3iP7FbqjN9EtU4xuVH/YR+jmEV4dG5ijNE8KeZcQtFRuK2dlJk4AGwCFte1GPUxAR7hYyo3g=="
   "resolved" "https://registry.npmjs.org/three.interactive/-/three.interactive-1.7.0.tgz"
@@ -304,7 +309,7 @@
   "resolved" "https://registry.npmjs.org/three.meshline/-/three.meshline-1.4.0.tgz"
   "version" "1.4.0"
 
-"three@^0.155.0", "three@>= 0.122.0":
+"three@^0.155.0", "three@>= 0.122.0", "three@>= 0.151.0":
   "integrity" "sha512-sNgCYmDijnIqkD/bMfk+1pHg3YzsxW7V2ChpuP6HCQ8NiZr3RufsXQr8M3SSUMjW4hG+sUk7YbyuY0DncaDTJQ=="
   "resolved" "https://registry.npmjs.org/three/-/three-0.155.0.tgz"
   "version" "0.155.0"
