@@ -15,9 +15,6 @@ import {InteractionManager} from "three.interactive";
 import {onClickOutside} from "@vueuse/core";
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 
-const randomId = (length = 6) => Math.random().toString(36).substring(2, length + 2);
-
-
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
@@ -25,8 +22,7 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 const app = ref(null)
 
 let interactionManager
-let camera, scene, renderer, controls, mesh, sphere, line;
-let points = []
+let camera, scene, renderer, controls
 let click = []
 let progressiveSurfacemap;
 let rayCaster;
@@ -37,6 +33,8 @@ let drawMode = ref(false);
 const stats = new Stats()
 stats.showPanel(0) // 0: fps, 1: ms, 2: mb, 3+: custom
 document.body.appendChild(stats.dom)
+let time = 0;
+let curShift = 0;
 
 let enableRotation = false;
 let wallTension = ref(0);
@@ -121,7 +119,6 @@ const initLights = ({x, y, z}) => {
 
     light.position.set(cube.position.x, cube.position.y, cube.position.z)
     renderer.shadowMap.needsUpdate = true
-
   })
 
   watch(lightColor, (newValue) => {
@@ -155,7 +152,7 @@ const initGUI = () => {
   }
   panel.add(settings, "enable rotation").onChange((newValue) => controls.enableRotate = newValue)
   panel.add(settings, "wall tension", 0, 1, 0.1).onChange((newValue) => wallTension.value = newValue)
-  panel.addColor(settings, "wall tension", 0xffffff).onChange((newValue) => lightColor.value = newValue)
+  panel.addColor(settings, "light color", 0xffffff).onChange((newValue) => lightColor.value = newValue)
 }
 const init = () => {
   THREE.ShaderChunk.lights_pars_begin = lights_par_beginGlsl
@@ -164,17 +161,13 @@ const init = () => {
   rayCaster = new THREE.Raycaster();
   plane = new THREE.Plane();
   plane.setFromCoplanarPoints(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1));
-  // camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000.0);
   camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, 0.1, 10000);
   camera.position.set(0, 700, 0)
-  // camera.zoom = 0.5
 
   progressiveSurfacemap = new ProgressiveLightMap(renderer, 256);
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x333333);
-
-  // scene.add(new THREE.HemisphereLight(0xffffcc, 0x19bbdc, 1));
 
   renderer = new THREE.WebGLRenderer({antialias: true});
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -182,16 +175,10 @@ const init = () => {
   renderer.shadowMap.enabled = true
 
   controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableRotate = enableRotation // TODO FACI TU DACA VREI SA POTI ROTI CAMERA
-  controls.enabled = true // TODO FACI TU DACA VREI SA POTI ROTI CAMERA
+  controls.enableRotate = enableRotation
+  controls.enabled = true
 
   initGUI()
-
-  interactionManager = new InteractionManager(
-    renderer,
-    camera,
-    renderer.domElement
-  );
 
   watch(app, (newValue) => {
     if (!newValue) return
@@ -233,8 +220,7 @@ const init = () => {
     initLights({x: getRandomInt(500), y: 10, z: getRandomInt(500)});
   }
 }
-let time = 0;
-let curShift = 0;
+
 const animate = () => {
   stats.begin()
   requestAnimationFrame(animate);
@@ -250,7 +236,7 @@ const animate = () => {
   stats.end()
 }
 
-const objectDelete = (event) => {
+const objectDelete = () => {
   if (contextMenuTargetedObject.value.parent.name === 'adjustableShape') contextMenuTargetedObject.value.parent.removeFromParent()
 
   handleContextMenu({})
