@@ -13,7 +13,7 @@ import lights_par_beginGlsl from "./shaderOverrides/lights_par_begin.glsl.js"
 import lights_fragment_beginGlsl from "./shaderOverrides/lights_frament_begin.glsl.js"
 import {InteractionManager} from "three.interactive";
 import {onClickOutside} from "@vueuse/core";
-import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast} from 'three-mesh-bvh';
 
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
@@ -44,6 +44,17 @@ let currentDrawingId = null;
 
 let contextMenuRef = ref(null)
 let contextMenuTargetedObject = ref(null)
+
+const fogMask = [
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
+  1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+];
 
 const handleContextMenu = (position, targetedObject, visibility) => {
   if (visibility) contextMenuRef.value.style.display = visibility
@@ -216,9 +227,37 @@ const init = () => {
   })
 
   initGround();
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 2; i++) {
     initLights({x: getRandomInt(500), y: 10, z: getRandomInt(500)});
   }
+
+  const data = new Uint8Array(fogMask.length );
+  data.set(fogMask.map(v => v * 255));
+  const texture = new THREE.DataTexture(data, 8, 8, THREE.RGFormat, THREE.UnsignedByteType);
+
+  texture.flipY = true;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+
+  texture.needsUpdate = true;
+
+  const geometry = new THREE.PlaneGeometry(1000, 1000,1,1);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    alphaMap: texture,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 1
+  });
+  const fogPlane = new THREE.Mesh(geometry, material);
+  fogPlane.position.y = 30
+  fogPlane.rotateX(-Math.PI / 2);
+
+  scene.add(fogPlane);
 }
 
 const animate = () => {
@@ -226,7 +265,6 @@ const animate = () => {
   requestAnimationFrame(animate);
 
   rayCaster.setFromCamera(mouse, camera);
-  interactionManager.update()
   controlPoints.forEach((cp, idx) => {
     curShift = (Math.PI / 2) * idx;
     cp.material.opacity = 0.6 + Math.sin(time - curShift) * .2;
