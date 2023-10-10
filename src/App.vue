@@ -139,43 +139,42 @@ const initLights = ({x, y, z}) => {
   })
 }
 const worldPositionToVectorPosition = (worldPosition) => {
-  const matrixSpace = [worldPosition.x + 500, worldPosition.z + 500]
-  console.log(matrixSpace, "matrixSpace")
-  const yMultiplier = Math.floor(matrixSpace[1]/50)
-  console.log(yMultiplier, "multiplier")
-  const origin = (2 * matrixSpace[0] + matrixSpace[1] * 2000 )
+  const matrixSpace = [worldPosition.x + groundSizes[0] / 2, worldPosition.z + groundSizes[1] / 2]
+  const origin = (2 * matrixSpace[0] + matrixSpace[1] * groundSizes[1] * 2)
+  const rowMax = groundSizes[0] * 2 + matrixSpace[1] * groundSizes[1] * 2
 
-  console.log(origin, "origin")
-  return [origin, origin + 1]
+  return [origin, rowMax]
 }
 const clearFogAtPosition = (worldPosition) => {
-  const vectorPosition = worldPositionToVectorPosition(worldPosition)
-  console.log(vectorPosition)
-  fogMask[vectorPosition[0]] = 0
-  fogMask[vectorPosition[1]] = 0
-  clearFogAroundVectorPosition(vectorPosition)
+  const [vectorPosition, rowMax] = worldPositionToVectorPosition(worldPosition)
+  fogMask[vectorPosition] = 0
+  fogMask[vectorPosition + 1] = 0
+  clearFogAroundVectorPosition(vectorPosition, rowMax)
   fogTexture.data = fogMask
   fogTexture.needsUpdate = true;
   fogMesh.needsUpdate = true;
   fogMaterial.needsUpdate = true
-  console.log(fogTexture.data)
 }
 
-const clearFogAroundVectorPosition = (vectorPosition, distance = 120) => {
+const clearFogAroundVectorPosition = (vectorPosition, rowMax, distance = 120) => {
   for (let i = 0; i < distance * 2; i += 2) {
     for (let j = 0; j < distance * 2; j += 2) {
-      fogMask[vectorPosition[0] + i] = 0
-      fogMask[vectorPosition[0] + i + 1] = 0
-      fogMask[vectorPosition[0] - j * groundSizes[1] + i + 1] = 0
-      fogMask[vectorPosition[0] - j * groundSizes[1] + i] = 0
-      fogMask[vectorPosition[0] + j * groundSizes[1] + i + 1] = 0
-      fogMask[vectorPosition[0] + j * groundSizes[1] + i] = 0
-      fogMask[vectorPosition[0] - i] = 0
-      fogMask[vectorPosition[0] - i - 1] = 0
-      fogMask[vectorPosition[0] - j * groundSizes[1] - i - 1] = 0
-      fogMask[vectorPosition[0] - j * groundSizes[1] - i] = 0
-      fogMask[vectorPosition[0] + j * groundSizes[1] - i - 1] = 0
-      fogMask[vectorPosition[0] + j * groundSizes[1] - i] = 0
+      if (vectorPosition + i <= rowMax) {
+        fogMask[vectorPosition + i] = 0
+        fogMask[vectorPosition + i + 1] = 0
+        fogMask[vectorPosition - j * groundSizes[1] + i + 1] = 0
+        fogMask[vectorPosition - j * groundSizes[1] + i] = 0
+        fogMask[vectorPosition + j * groundSizes[1] + i + 1] = 0
+        fogMask[vectorPosition + j * groundSizes[1] + i] = 0
+      }
+      if (vectorPosition - i > rowMax - groundSizes[0] * 2) {
+        fogMask[vectorPosition - i] = 0
+        fogMask[vectorPosition - i - 1] = 0
+        fogMask[vectorPosition - j * groundSizes[1] - i - 1] = 0
+        fogMask[vectorPosition - j * groundSizes[1] - i] = 0
+        fogMask[vectorPosition + j * groundSizes[1] - i - 1] = 0
+        fogMask[vectorPosition + j * groundSizes[1] - i] = 0
+      }
     }
   }
 }
@@ -191,7 +190,6 @@ const initCharacter = () => {
   addDragControls({
     primary: cylinder, onDragComplete: (newPosition) => {
       clearFogAtPosition(newPosition)
-      console.log("here", newPosition)
     }
   })
 
