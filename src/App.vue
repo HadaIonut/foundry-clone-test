@@ -24,7 +24,6 @@ const app = ref(null)
 let interactionManager
 let camera, scene, renderer, controls
 let click = []
-let progressiveSurfacemap;
 let rayCaster;
 const controlPoints = [];
 let mouse = new THREE.Vector2();
@@ -44,17 +43,10 @@ let currentDrawingId = null;
 
 let contextMenuRef = ref(null)
 let contextMenuTargetedObject = ref(null)
+let fogMask
+let fogTexture, fogMesh, fogMaterial
 
-const fogMask = [
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-  1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
-];
+let groundSizes = [1000, 1000]
 
 const handleContextMenu = (position, targetedObject, visibility) => {
   if (visibility) contextMenuRef.value.style.display = visibility
@@ -76,7 +68,7 @@ const drawModeToggleFunction = (event) => {
 
 const initGround = () => {
   const groundTexture = new THREE.TextureLoader().load('./map.jpg')
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000),
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(groundSizes[0], groundSizes[1]),
     new THREE.MeshPhongMaterial({
       map: groundTexture,
 
@@ -92,6 +84,34 @@ const initGround = () => {
   const gridHelper = new THREE.GridHelper(size, divisions);
   gridHelper.position.y += 5;
   scene.add(gridHelper);
+}
+
+const addDragControls = ({primary, secondary, onDragComplete}) => {
+  const controls = new DragControls([primary], camera, renderer.domElement);
+
+  controls.addEventListener('drag', () => {
+    if (secondary) {
+      secondary.position.x = primary.position.x;
+      secondary.position.z = primary.position.z;
+    }
+  });
+
+  controls.addEventListener("dragend", () => {
+    const grid = 50;
+    const halfGrd = grid / 2;
+    primary.position.set(
+      Math.round((primary.position.x + halfGrd) / grid) * grid - halfGrd,
+      primary.position.y,
+      Math.round((primary.position.z + halfGrd) / grid) * grid - halfGrd
+    )
+
+    if (secondary)
+      secondary.position.set(primary.position.x, primary.position.y, primary.position.z)
+
+    renderer.shadowMap.needsUpdate = true
+
+    onDragComplete?.(primary.position)
+  })
 }
 
 const initLights = ({x, y, z}) => {
@@ -112,29 +132,100 @@ const initLights = ({x, y, z}) => {
   const helper = new THREE.PointLightHelper(light);
   scene.add(helper);
 
-  const controls = new DragControls([cube], camera, renderer.domElement);
-
-  controls.addEventListener('drag', (event) => {
-    light.position.x = cube.position.x;
-    light.position.z = cube.position.z;
-  });
-
-  controls.addEventListener("dragend", (event) => {
-    const grid = 50;
-    const halfGrd = grid / 2;
-    cube.position.set(
-      Math.round((cube.position.x + halfGrd) / grid) * grid - halfGrd,
-      cube.position.y,
-      Math.round((cube.position.z + halfGrd) / grid) * grid - halfGrd
-    )
-
-    light.position.set(cube.position.x, cube.position.y, cube.position.z)
-    renderer.shadowMap.needsUpdate = true
-  })
+  addDragControls({primary: cube, secondary: light})
 
   watch(lightColor, (newValue) => {
     light.color.set(newValue)
   })
+}
+const worldPositionToVectorPosition = (worldPosition) => {
+  const matrixSpace = [worldPosition.x + 500, worldPosition.z + 500]
+  console.log(matrixSpace, "matrixSpace")
+  const yMultiplier = Math.floor(matrixSpace[1]/50)
+  console.log(yMultiplier, "multiplier")
+  const origin = (2 * matrixSpace[0] + matrixSpace[1] * 2000 )
+
+  console.log(origin, "origin")
+  return [origin, origin + 1]
+}
+const clearFogAtPosition = (worldPosition) => {
+  const vectorPosition = worldPositionToVectorPosition(worldPosition)
+  console.log(vectorPosition)
+  fogMask[vectorPosition[0]] = 0
+  fogMask[vectorPosition[1]] = 0
+  clearFogAroundVectorPosition(vectorPosition)
+  fogTexture.data = fogMask
+  fogTexture.needsUpdate = true;
+  fogMesh.needsUpdate = true;
+  fogMaterial.needsUpdate = true
+  console.log(fogTexture.data)
+}
+
+const clearFogAroundVectorPosition = (vectorPosition, distance = 120) => {
+  for (let i = 0; i < distance * 2; i += 2) {
+    for (let j = 0; j < distance * 2; j += 2) {
+      fogMask[vectorPosition[0] + i] = 0
+      fogMask[vectorPosition[0] + i + 1] = 0
+      fogMask[vectorPosition[0] - j * groundSizes[1] + i + 1] = 0
+      fogMask[vectorPosition[0] - j * groundSizes[1] + i] = 0
+      fogMask[vectorPosition[0] + j * groundSizes[1] + i + 1] = 0
+      fogMask[vectorPosition[0] + j * groundSizes[1] + i] = 0
+      fogMask[vectorPosition[0] - i] = 0
+      fogMask[vectorPosition[0] - i - 1] = 0
+      fogMask[vectorPosition[0] - j * groundSizes[1] - i - 1] = 0
+      fogMask[vectorPosition[0] - j * groundSizes[1] - i] = 0
+      fogMask[vectorPosition[0] + j * groundSizes[1] - i - 1] = 0
+      fogMask[vectorPosition[0] + j * groundSizes[1] - i] = 0
+    }
+  }
+}
+
+const initCharacter = () => {
+  const geometry = new THREE.CylinderGeometry(20, 5, 20, 32);
+  const material = new THREE.MeshBasicMaterial({color: 0xffff00});
+  const cylinder = new THREE.Mesh(geometry, material);
+  scene.add(cylinder);
+
+  cylinder.position.set(25, 10, 25)
+  clearFogAtPosition(cylinder.position)
+  addDragControls({
+    primary: cylinder, onDragComplete: (newPosition) => {
+      clearFogAtPosition(newPosition)
+      console.log("here", newPosition)
+    }
+  })
+
+  scene.add(cylinder)
+}
+
+const initFogOfWar = () => {
+  fogMask = new Uint8Array(groundSizes[0] * groundSizes[1] * 2);
+  fogMask.fill(255)
+  fogTexture = new THREE.DataTexture(fogMask, groundSizes[0], groundSizes[1], THREE.RGFormat, THREE.UnsignedByteType);
+
+  fogTexture.flipY = true;
+  fogTexture.wrapS = THREE.ClampToEdgeWrapping;
+  fogTexture.wrapT = THREE.ClampToEdgeWrapping;
+  fogTexture.generateMipmaps = false;
+
+  fogTexture.magFilter = THREE.LinearFilter;
+  fogTexture.minFilter = THREE.LinearFilter;
+
+  fogTexture.needsUpdate = true;
+
+  const geometry = new THREE.PlaneGeometry(1000, 1000, 1, 1);
+  fogMaterial = new THREE.MeshBasicMaterial({
+    color: 0xFF0000,
+    alphaMap: fogTexture,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 1
+  });
+  fogMesh = new THREE.Mesh(geometry, fogMaterial);
+  fogMesh.position.y = 30
+  fogMesh.rotateX(-Math.PI / 2);
+
+  scene.add(fogMesh);
 }
 
 const findLocationFromCoords = (x, y) => {
@@ -174,8 +265,6 @@ const init = () => {
   plane.setFromCoplanarPoints(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1));
   camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, 0.1, 10000);
   camera.position.set(0, 700, 0)
-
-  progressiveSurfacemap = new ProgressiveLightMap(renderer, 256);
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x333333);
@@ -231,33 +320,10 @@ const init = () => {
     initLights({x: getRandomInt(500), y: 10, z: getRandomInt(500)});
   }
 
-  const data = new Uint8Array(fogMask.length );
-  data.set(fogMask.map(v => v * 255));
-  const texture = new THREE.DataTexture(data, 8, 8, THREE.RGFormat, THREE.UnsignedByteType);
+  initLights({x: 50, y: 10, z: 50});
 
-  texture.flipY = true;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.generateMipmaps = false;
-
-  texture.magFilter = THREE.LinearFilter;
-  texture.minFilter = THREE.LinearFilter;
-
-  texture.needsUpdate = true;
-
-  const geometry = new THREE.PlaneGeometry(1000, 1000,1,1);
-  const material = new THREE.MeshBasicMaterial({
-    color: 0x000000,
-    alphaMap: texture,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 1
-  });
-  const fogPlane = new THREE.Mesh(geometry, material);
-  fogPlane.position.y = 30
-  fogPlane.rotateX(-Math.PI / 2);
-
-  scene.add(fogPlane);
+  initFogOfWar()
+  initCharacter()
 }
 
 const animate = () => {
