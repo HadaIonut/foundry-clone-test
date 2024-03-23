@@ -106,6 +106,7 @@ export const adjustableShape = ({
   })
 
   shapeMesh.castShadow = true
+  shapeMesh.name = 'Wall'
   scene.add(shapeGroup)
 
   if (controlPoints.length !== 1) {
@@ -142,10 +143,10 @@ export const adjustableShape = ({
     } else {
       shapeGeometry = new WallGeometry(curve, 75 * controlPoints.length, 2, 10, 8, false);
     }
+    shapeGeometry.computeBoundsTree()
     shapeGeometry.translate(0, 0, 0);
     shapeMesh.geometry.dispose();
     shapeMesh.geometry = shapeGeometry;
-    shapeMesh.geometry.computeBoundsTree()
   }
   if (controlPoints.length !== 1) {
     extrudeMesh();

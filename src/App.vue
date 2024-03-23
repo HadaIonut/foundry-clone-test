@@ -3,15 +3,11 @@ import * as THREE from 'three'
 import {reactive, ref, watch} from "vue";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 import {DragControls} from "three/addons/controls/DragControls.js";
-import {ConvexGeometry} from "three/addons/geometries/ConvexGeometry.js";
 import Stats from 'stats.js'
-import {ProgressiveLightMap} from "three/addons/misc/ProgressiveLightMap.js";
-import {PCFSoftShadowMap} from "three";
 import {adjustableShape, createPoint} from "./adjustableShape.js";
 import {GUI} from "three/addons/libs/lil-gui.module.min.js";
 import lights_par_beginGlsl from "./shaderOverrides/lights_par_begin.glsl.js"
 import lights_fragment_beginGlsl from "./shaderOverrides/lights_frament_begin.glsl.js"
-import {InteractionManager} from "three.interactive";
 import {onClickOutside} from "@vueuse/core";
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast} from 'three-mesh-bvh';
 
@@ -115,19 +111,21 @@ const addDragControls = ({primary, secondary, onDragComplete}) => {
 }
 
 const initLights = ({x, y, z}) => {
-  const light = new THREE.PointLight(lightColor.value, 1000, 500, 1);
-  light.position.set(x, y, z);
-  light.castShadow = true;
-  light.distance = 300;
-
-  scene.add(light);
-
   const geometry = new THREE.SphereGeometry(20);
+  geometry.computeBoundsTree()
   const material = new THREE.MeshBasicMaterial({color: "orange"});
   const cube = new THREE.Mesh(geometry, material);
   cube.position.set(x, y, z)
   cube.castShadow = false;
+  cube.name = 'sourceLight'
   scene.add(cube)
+
+  const light = new THREE.PointLight(lightColor.value, 1000, 500, 1);
+  light.position.set(x, y, z);
+  light.castShadow = true;
+  light.distance = 300;
+  light.name = `sourceLight-${cube.uuid}`
+  scene.add(light);
 
   const helper = new THREE.PointLightHelper(light);
   scene.add(helper);
@@ -145,38 +143,36 @@ const worldPositionToVectorPosition = (worldPosition) => {
 
   return [origin, rowMax]
 }
-const clearFogAtPosition = (worldPosition) => {
-  const [vectorPosition, rowMax] = worldPositionToVectorPosition(worldPosition)
-  fogMask[vectorPosition] = 0
-  fogMask[vectorPosition + 1] = 0
-  clearFogAroundVectorPosition(vectorPosition, rowMax)
-  fogTexture.data = fogMask
-  fogTexture.needsUpdate = true;
-  fogMesh.needsUpdate = true;
-  fogMaterial.needsUpdate = true
-}
 
-const clearFogAroundVectorPosition = (vectorPosition, rowMax, distance = 120) => {
-  for (let i = 0; i < distance * 2; i += 2) {
-    for (let j = 0; j < distance * 2; j += 2) {
-      if (vectorPosition + i <= rowMax) {
-        fogMask[vectorPosition + i] = 0
-        fogMask[vectorPosition + i + 1] = 0
-        fogMask[vectorPosition - j * groundSizes[1] + i + 1] = 0
-        fogMask[vectorPosition - j * groundSizes[1] + i] = 0
-        fogMask[vectorPosition + j * groundSizes[1] + i + 1] = 0
-        fogMask[vectorPosition + j * groundSizes[1] + i] = 0
-      }
-      if (vectorPosition - i > rowMax - groundSizes[0] * 2) {
-        fogMask[vectorPosition - i] = 0
-        fogMask[vectorPosition - i - 1] = 0
-        fogMask[vectorPosition - j * groundSizes[1] - i - 1] = 0
-        fogMask[vectorPosition - j * groundSizes[1] - i] = 0
-        fogMask[vectorPosition + j * groundSizes[1] - i - 1] = 0
-        fogMask[vectorPosition + j * groundSizes[1] - i] = 0
-      }
+const hideNonVisibleLights = (position, viewDistance = 400) => {
+  const lights = scene.getObjectsByProperty('name', 'sourceLight')
+  const walls = scene.getObjectsByProperty('name', 'adjustableShape').map((group) => group.children).reduce((acc, cur) => [...acc, ...cur], [])
+
+  lights.reduce((acc, cur) => {
+    const raycaster = new THREE.Raycaster()
+    const direction = new THREE.Vector3()
+
+    const lightSource = scene.getObjectByProperty('name', `sourceLight-${cur.uuid}`)
+
+    raycaster.firstHitOnly = true;
+    direction.subVectors(cur.position, position)
+
+    raycaster.set(position, direction.normalize());
+    raycaster.near = 0;
+    raycaster.far = viewDistance;
+
+    const intersects = raycaster.intersectObjects([cur, ...walls], false).map((el) => el.object)
+    const interactionsContainsWall = intersects.some((element) => element.name === 'Wall')
+    console.log(intersects)
+
+    if (!interactionsContainsWall && intersects.length !== 0) {
+      cur.visible = true
+      lightSource.visible = true
+    } else {
+      lightSource.visible = false
+      cur.visible = false;
     }
-  }
+  }, [])
 }
 
 const initCharacter = () => {
@@ -186,10 +182,11 @@ const initCharacter = () => {
   scene.add(cylinder);
 
   cylinder.position.set(25, 10, 25)
-  clearFogAtPosition(cylinder.position)
+  hideNonVisibleLights(cylinder.position)
+
   addDragControls({
     primary: cylinder, onDragComplete: (newPosition) => {
-      clearFogAtPosition(newPosition)
+      hideNonVisibleLights(cylinder.position)
     }
   })
 
@@ -320,7 +317,6 @@ const init = () => {
 
   initLights({x: 50, y: 10, z: 50});
 
-  initFogOfWar()
   initCharacter()
 }
 
