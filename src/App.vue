@@ -2,7 +2,6 @@
 import * as THREE from 'three'
 import {reactive, ref, watch} from "vue";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
-import {DragControls} from "three/addons/controls/DragControls.js";
 import Stats from 'stats.js'
 import {adjustableShape, createPoint} from "./adjustableShape.js";
 import {GUI} from "three/addons/libs/lil-gui.module.min.js";
@@ -12,6 +11,7 @@ import {onClickOutside} from "@vueuse/core";
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast} from 'three-mesh-bvh';
 import {hideNonVisibleLights, initCharacter} from "./characterController.js";
 import {addDragControls} from "./utils.js";
+import {initLights} from "./lightController.js";
 
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
@@ -65,9 +65,10 @@ const drawModeToggleFunction = (event) => {
 const initGround = () => {
   const groundTexture = new THREE.TextureLoader().load('./map.jpg')
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(groundSizes[0], groundSizes[1]),
-    new THREE.MeshPhongMaterial({
+    new THREE.MeshStandardMaterial({
       map: groundTexture,
-      color: 0xffffff, depthWrite: true
+      color: 0xffffff,
+      depthWrite: true
     }));
   ground.rotateX(-Math.PI / 2);
   ground.receiveShadow = true;
@@ -81,37 +82,6 @@ const initGround = () => {
   scene.add(gridHelper);
 }
 
-
-const initLights = ({x, y, z}) => {
-  const geometry = new THREE.SphereGeometry(20);
-  geometry.computeBoundsTree()
-  const material = new THREE.MeshBasicMaterial({color: "orange"});
-  const cube = new THREE.Mesh(geometry, material);
-  cube.position.set(x, y, z)
-  cube.castShadow = false;
-  cube.name = 'sourceLight'
-  scene.add(cube)
-
-  const light = new THREE.PointLight(lightColor.value, 1000, 500, 1);
-  light.position.set(x, y, z);
-  light.castShadow = true;
-  light.distance = 300;
-  light.name = `sourceLight-${cube.uuid}`
-  scene.add(light);
-
-  const helper = new THREE.PointLightHelper(light);
-  scene.add(helper);
-
-  addDragControls(camera, renderer)({
-    primary: cube, secondary: light, onDragComplete: () => {
-      hideNonVisibleLights(scene, player.position)
-    }
-  })
-
-  watch(lightColor, (newValue) => {
-    light.color.set(newValue)
-  })
-}
 const findLocationFromCoords = (x, y) => {
   const reycaster = new THREE.Raycaster()
   const mouse = new THREE.Vector2()
@@ -141,9 +111,6 @@ const initGUI = () => {
   panel.addColor(settings, "light color", 0xffffff).onChange((newValue) => lightColor.value = newValue)
 }
 const init = () => {
-  THREE.ShaderChunk.lights_pars_begin = lights_par_beginGlsl
-  THREE.ShaderChunk.lights_fragment_begin = lights_fragment_beginGlsl
-
   rayCaster = new THREE.Raycaster();
   plane = new THREE.Plane();
   plane.setFromCoplanarPoints(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1));
@@ -157,6 +124,7 @@ const init = () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.shadowMap.enabled = true
+  renderer.shadowMap.autoUpdate = false
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableRotate = enableRotation
@@ -185,6 +153,7 @@ const init = () => {
           filled: false,
           closed: false,
           concaveHull: false,
+          renderer,
           handleContextMenu,
           onDragComplete: () => {
             hideNonVisibleLights(scene, player.position)
@@ -201,15 +170,16 @@ const init = () => {
       shape[currentDrawingId].updateShape()
     })
   })
+  player = initCharacter(scene, camera, renderer)
+
+  const spawnLight = initLights(scene, lightColor, camera, renderer, player)
 
   initGround();
-  for (let i = 0; i < 2; i++) {
-    initLights({x: getRandomInt(10) * 25, y: 10, z: getRandomInt(10) * 25});
+  for (let i = 0; i < 10; i++) {
+    spawnLight({x: getRandomInt(10) * 25, y: 10, z: getRandomInt(10) * 25});
   }
 
-  initLights({x: 75, y: 10, z: 25});
-
-  player = initCharacter(scene, camera, renderer)
+  spawnLight({x: 75, y: 10, z: 25});
 }
 
 const animate = () => {

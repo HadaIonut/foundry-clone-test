@@ -367,25 +367,20 @@
     "commander" "^2.20.0"
     "source-map-support" "~0.5.20"
 
-"three-mesh-bvh@^0.6.7":
-  "integrity" "sha512-EGebF9DZx1S8+7OZYNNTT80GXJZVf+UYXD/HyTg/e2kR/ApofIFfUS4ZzIHNnUVIadpnLSzM4n96wX+l7GMbnQ=="
-  "resolved" "https://registry.npmjs.org/three-mesh-bvh/-/three-mesh-bvh-0.6.8.tgz"
-  "version" "0.6.8"
+"three-mesh-bvh@^0.7.3":
+  "integrity" "sha512-3W6KjzmupjfE89GuHPT31kxKWZ4YGZPEZJNysJpiOZfQRsBQQgmK7v/VJPpjG6syhAvTnY+5Fr77EvIkTLpGSw=="
+  "resolved" "https://registry.npmjs.org/three-mesh-bvh/-/three-mesh-bvh-0.7.3.tgz"
+  "version" "0.7.3"
 
 "three.interactive@^1.7.0":
   "integrity" "sha512-WuJijcJUT8cxiU3iP7FbqjN9EtU4xuVH/YR+jmEV4dG5ijNE8KeZcQtFRuK2dlJk4AGwCFte1GPUxAR7hYyo3g=="
   "resolved" "https://registry.npmjs.org/three.interactive/-/three.interactive-1.7.0.tgz"
   "version" "1.7.0"
 
-"three.meshline@^1.4.0":
-  "integrity" "sha512-A8IsiMrWP8zmHisGDAJ76ZD7t/dOF/oCe/FUKNE6Bu01ZYEx8N6IlU/1Plb2aOZtAuWM2A8s8qS3hvY0OFuvOw=="
-  "resolved" "https://registry.npmjs.org/three.meshline/-/three.meshline-1.4.0.tgz"
-  "version" "1.4.0"
-
-"three@^0.155.0", "three@>= 0.122.0", "three@>= 0.151.0":
-  "integrity" "sha512-sNgCYmDijnIqkD/bMfk+1pHg3YzsxW7V2ChpuP6HCQ8NiZr3RufsXQr8M3SSUMjW4hG+sUk7YbyuY0DncaDTJQ=="
-  "resolved" "https://registry.npmjs.org/three/-/three-0.155.0.tgz"
-  "version" "0.155.0"
+"three@^0.162.0", "three@>= 0.122.0", "three@>= 0.151.0":
+  "integrity" "sha512-xfCYj4RnlozReCmUd+XQzj6/5OjDNHBy5nT6rVwrOKGENAvpXe2z1jL+DZYaMu4/9pNsjH/4Os/VvS9IrH7IOQ=="
+  "resolved" "https://registry.npmjs.org/three/-/three-0.162.0.tgz"
+  "version" "0.162.0"
 
 "tinyqueue@^2.0.3":
   "integrity" "sha512-ppJZNDuKGgxzkHihX8v9v9G5f+18gzaTfrukGrq6ueg0lmH4nqVnA2IPG0AEH3jKEk2GRJCUhDoqpoiw3PHLBA=="

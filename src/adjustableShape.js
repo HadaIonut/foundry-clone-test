@@ -3,6 +3,7 @@ import {Vector3} from 'three'
 import {watch} from "vue";
 import concaveman from "concaveman";
 import {WallGeometry} from "./canvasComponents/WallGeometry.js";
+import {updateAllLightsShadowCasting} from "./lightController.js";
 
 let fuckCurves
 const findCenterOfObject = (points) => {
@@ -61,6 +62,7 @@ export const adjustableShape = ({
                                   plane,
                                   mouse,
                                   tension,
+                                  renderer,
                                   filled = true,
                                   closed = false,
                                   concaveHull = true,
@@ -148,6 +150,8 @@ export const adjustableShape = ({
     shapeGeometry.translate(0, 0, 0);
     shapeMesh.geometry.dispose();
     shapeMesh.geometry = shapeGeometry;
+    updateAllLightsShadowCasting(scene)
+
   }
   if (controlPoints.length !== 1) {
     extrudeMesh();
@@ -155,6 +159,7 @@ export const adjustableShape = ({
   const onMouseDown = (event) => {
     const controlPointsIntersection = rayCaster.intersectObjects(controlPoints)
     const centralPointIntersection = rayCaster.intersectObject(centralPoint);
+    renderer.shadowMap.autoUpdate = true
 
     if (event.button === 0) {
 
@@ -185,7 +190,13 @@ export const adjustableShape = ({
   const onMouseUp = (event) => {
     controls.enableRotate = false;
     dragObject = null;
+    if (dragging) {
+      updateAllLightsShadowCasting(scene)
+      renderer.shadowMap.autoUpdate = false
+
+    }
     dragging = false;
+
     onDragComplete()
     event.preventDefault()
   }
