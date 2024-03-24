@@ -10,6 +10,8 @@ import lights_par_beginGlsl from "./shaderOverrides/lights_par_begin.glsl.js"
 import lights_fragment_beginGlsl from "./shaderOverrides/lights_frament_begin.glsl.js"
 import {onClickOutside} from "@vueuse/core";
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast} from 'three-mesh-bvh';
+import {initCharacter} from "./characterController.js";
+import {addDragControls} from "./utils.js";
 
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
@@ -82,33 +84,6 @@ const initGround = () => {
   scene.add(gridHelper);
 }
 
-const addDragControls = ({primary, secondary, onDragComplete}) => {
-  const controls = new DragControls([primary], camera, renderer.domElement);
-
-  controls.addEventListener('drag', () => {
-    if (secondary) {
-      secondary.position.x = primary.position.x;
-      secondary.position.z = primary.position.z;
-    }
-  });
-
-  controls.addEventListener("dragend", () => {
-    const grid = 50;
-    const halfGrd = grid / 2;
-    primary.position.set(
-      Math.round((primary.position.x + halfGrd) / grid) * grid - halfGrd,
-      primary.position.y,
-      Math.round((primary.position.z + halfGrd) / grid) * grid - halfGrd
-    )
-
-    if (secondary)
-      secondary.position.set(primary.position.x, primary.position.y, primary.position.z)
-
-    renderer.shadowMap.needsUpdate = true
-
-    onDragComplete?.(primary.position)
-  })
-}
 
 const initLights = ({x, y, z}) => {
   const geometry = new THREE.SphereGeometry(20);
@@ -130,99 +105,12 @@ const initLights = ({x, y, z}) => {
   const helper = new THREE.PointLightHelper(light);
   scene.add(helper);
 
-  addDragControls({primary: cube, secondary: light})
+  addDragControls(camera, renderer)({primary: cube, secondary: light})
 
   watch(lightColor, (newValue) => {
     light.color.set(newValue)
   })
 }
-const worldPositionToVectorPosition = (worldPosition) => {
-  const matrixSpace = [worldPosition.x + groundSizes[0] / 2, worldPosition.z + groundSizes[1] / 2]
-  const origin = (2 * matrixSpace[0] + matrixSpace[1] * groundSizes[1] * 2)
-  const rowMax = groundSizes[0] * 2 + matrixSpace[1] * groundSizes[1] * 2
-
-  return [origin, rowMax]
-}
-
-const hideNonVisibleLights = (position, viewDistance = 400) => {
-  const lights = scene.getObjectsByProperty('name', 'sourceLight')
-  const walls = scene.getObjectsByProperty('name', 'adjustableShape').map((group) => group.children).reduce((acc, cur) => [...acc, ...cur], [])
-
-  lights.reduce((acc, cur) => {
-    const raycaster = new THREE.Raycaster()
-    const direction = new THREE.Vector3()
-
-    const lightSource = scene.getObjectByProperty('name', `sourceLight-${cur.uuid}`)
-
-    raycaster.firstHitOnly = true;
-    direction.subVectors(cur.position, position)
-
-    raycaster.set(position, direction.normalize());
-    raycaster.near = 0;
-    raycaster.far = viewDistance;
-
-    const intersects = raycaster.intersectObjects([cur, ...walls], false).map((el) => el.object)
-    const interactionsContainsWall = intersects.some((element) => element.name === 'Wall')
-    console.log(intersects)
-
-    if (!interactionsContainsWall && intersects.length !== 0) {
-      cur.visible = true
-      lightSource.visible = true
-    } else {
-      lightSource.visible = false
-      cur.visible = false;
-    }
-  }, [])
-}
-
-const initCharacter = () => {
-  const geometry = new THREE.CylinderGeometry(20, 5, 20, 32);
-  const material = new THREE.MeshBasicMaterial({color: 0xffff00});
-  const cylinder = new THREE.Mesh(geometry, material);
-  scene.add(cylinder);
-
-  cylinder.position.set(25, 10, 25)
-  hideNonVisibleLights(cylinder.position)
-
-  addDragControls({
-    primary: cylinder, onDragComplete: (newPosition) => {
-      hideNonVisibleLights(cylinder.position)
-    }
-  })
-
-  scene.add(cylinder)
-}
-
-const initFogOfWar = () => {
-  fogMask = new Uint8Array(groundSizes[0] * groundSizes[1] * 2);
-  fogMask.fill(255)
-  fogTexture = new THREE.DataTexture(fogMask, groundSizes[0], groundSizes[1], THREE.RGFormat, THREE.UnsignedByteType);
-
-  fogTexture.flipY = true;
-  fogTexture.wrapS = THREE.ClampToEdgeWrapping;
-  fogTexture.wrapT = THREE.ClampToEdgeWrapping;
-  fogTexture.generateMipmaps = false;
-
-  fogTexture.magFilter = THREE.LinearFilter;
-  fogTexture.minFilter = THREE.LinearFilter;
-
-  fogTexture.needsUpdate = true;
-
-  const geometry = new THREE.PlaneGeometry(1000, 1000, 1, 1);
-  fogMaterial = new THREE.MeshBasicMaterial({
-    color: 0xFF0000,
-    alphaMap: fogTexture,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 1
-  });
-  fogMesh = new THREE.Mesh(geometry, fogMaterial);
-  fogMesh.position.y = 30
-  fogMesh.rotateX(-Math.PI / 2);
-
-  scene.add(fogMesh);
-}
-
 const findLocationFromCoords = (x, y) => {
   const reycaster = new THREE.Raycaster()
   const mouse = new THREE.Vector2()
@@ -317,7 +205,7 @@ const init = () => {
 
   initLights({x: 50, y: 10, z: 50});
 
-  initCharacter()
+  initCharacter(scene, camera, renderer)
 }
 
 const animate = () => {
