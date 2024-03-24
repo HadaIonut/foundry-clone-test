@@ -10,7 +10,7 @@ import lights_par_beginGlsl from "./shaderOverrides/lights_par_begin.glsl.js"
 import lights_fragment_beginGlsl from "./shaderOverrides/lights_frament_begin.glsl.js"
 import {onClickOutside} from "@vueuse/core";
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast} from 'three-mesh-bvh';
-import {initCharacter} from "./characterController.js";
+import {hideNonVisibleLights, initCharacter} from "./characterController.js";
 import {addDragControls} from "./utils.js";
 
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -41,8 +41,7 @@ let currentDrawingId = null;
 
 let contextMenuRef = ref(null)
 let contextMenuTargetedObject = ref(null)
-let fogMask
-let fogTexture, fogMesh, fogMaterial
+let player;
 
 let groundSizes = [1000, 1000]
 
@@ -53,7 +52,6 @@ const handleContextMenu = (position, targetedObject, visibility) => {
     else contextMenuRef.value.style.display = 'none'
   }
   if (targetedObject) contextMenuTargetedObject.value = targetedObject
-  // debugger
   contextMenuRef.value.style.top = `${position.top}px`
   contextMenuRef.value.style.left = `${position.left}px`
 }
@@ -69,7 +67,6 @@ const initGround = () => {
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(groundSizes[0], groundSizes[1]),
     new THREE.MeshPhongMaterial({
       map: groundTexture,
-
       color: 0xffffff, depthWrite: true
     }));
   ground.rotateX(-Math.PI / 2);
@@ -105,7 +102,11 @@ const initLights = ({x, y, z}) => {
   const helper = new THREE.PointLightHelper(light);
   scene.add(helper);
 
-  addDragControls(camera, renderer)({primary: cube, secondary: light})
+  addDragControls(camera, renderer)({
+    primary: cube, secondary: light, onDragComplete: () => {
+      hideNonVisibleLights(scene, player.position)
+    }
+  })
 
   watch(lightColor, (newValue) => {
     light.color.set(newValue)
@@ -184,7 +185,10 @@ const init = () => {
           filled: false,
           closed: false,
           concaveHull: false,
-          handleContextMenu
+          handleContextMenu,
+          onDragComplete: () => {
+            hideNonVisibleLights(scene, player.position)
+          }
         })
         currentDrawingId = object.uuid
         shape[currentDrawingId] = {
@@ -200,12 +204,12 @@ const init = () => {
 
   initGround();
   for (let i = 0; i < 2; i++) {
-    initLights({x: getRandomInt(500), y: 10, z: getRandomInt(500)});
+    initLights({x: getRandomInt(10) * 25, y: 10, z: getRandomInt(10) * 25});
   }
 
-  initLights({x: 50, y: 10, z: 50});
+  initLights({x: 75, y: 10, z: 25});
 
-  initCharacter(scene, camera, renderer)
+  player = initCharacter(scene, camera, renderer)
 }
 
 const animate = () => {

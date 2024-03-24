@@ -64,7 +64,8 @@ export const adjustableShape = ({
                                   filled = true,
                                   closed = false,
                                   concaveHull = true,
-                                  handleContextMenu
+                                  handleContextMenu,
+                                  onDragComplete
                                 }) => {
   const shapeGroup = new THREE.Group()
   shapeGroup.add(originPoint)
@@ -185,6 +186,7 @@ export const adjustableShape = ({
     controls.enableRotate = false;
     dragObject = null;
     dragging = false;
+    onDragComplete()
     event.preventDefault()
   }
 

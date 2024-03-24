@@ -1,9 +1,11 @@
 import * as THREE from "three";
 import {addDragControls} from "./utils.js";
 
-const hideNonVisibleLights = (scene, position, viewDistance = 400) => {
+export const hideNonVisibleLights = (scene, position, viewDistance = 400) => {
   const lights = scene.getObjectsByProperty('name', 'sourceLight')
-  const walls = scene.getObjectsByProperty('name', 'adjustableShape').map((group) => group.children).reduce((acc, cur) => [...acc, ...cur], [])
+  const walls = scene.getObjectsByProperty('name', 'adjustableShape')
+    .map((group) => group.children)
+    .reduce((acc, cur) => [...acc, ...cur], []).filter((el) => el.name === 'Wall')
 
   lights.reduce((acc, cur) => {
     const raycaster = new THREE.Raycaster()
@@ -19,10 +21,8 @@ const hideNonVisibleLights = (scene, position, viewDistance = 400) => {
     raycaster.far = viewDistance;
 
     const intersects = raycaster.intersectObjects([cur, ...walls], false).map((el) => el.object)
-    const interactionsContainsWall = intersects.some((element) => element.name === 'Wall')
-    console.log(intersects)
 
-    if (!interactionsContainsWall && intersects.length !== 0) {
+    if (intersects[0]?.name === 'sourceLight') {
       cur.visible = true
       lightSource.visible = true
     } else {
@@ -43,7 +43,7 @@ const handleKeyNavigation = (event, player, scene) => {
     player.translateX(50)
   }
 
-  hideNonVisibleLights(scene,player.position)
+  hideNonVisibleLights(scene, player.position)
 }
 
 export const initCharacter = (scene, camera, renderer) => {
@@ -64,4 +64,5 @@ export const initCharacter = (scene, camera, renderer) => {
   document.addEventListener('keydown', (event) => handleKeyNavigation(event, cylinder, scene))
 
   scene.add(cylinder)
+  return cylinder
 }
