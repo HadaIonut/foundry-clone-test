@@ -5,13 +5,11 @@ import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 import Stats from 'stats.js'
 import {adjustableShape, createPoint} from "./adjustableShape.js";
 import {GUI} from "three/addons/libs/lil-gui.module.min.js";
-import lights_par_beginGlsl from "./shaderOverrides/lights_par_begin.glsl.js"
-import lights_fragment_beginGlsl from "./shaderOverrides/lights_frament_begin.glsl.js"
 import {onClickOutside} from "@vueuse/core";
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast} from 'three-mesh-bvh';
 import {hideNonVisibleLights, initCharacter} from "./characterController.js";
-import {addDragControls} from "./utils.js";
 import {initLights} from "./lightController.js";
+import {Vector3} from "three";
 
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
@@ -19,7 +17,6 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 const app = ref(null)
 
-let interactionManager
 let camera, scene, renderer, controls
 let click = []
 let rayCaster;
@@ -170,9 +167,10 @@ const init = () => {
       shape[currentDrawingId].updateShape()
     })
   })
-  player = initCharacter(scene, camera, renderer)
+  initCharacter(scene, camera, renderer)
+  initCharacter(scene, camera, renderer, new Vector3(100, 10, 100))
 
-  const spawnLight = initLights(scene, lightColor, camera, renderer, player)
+  const spawnLight = initLights(scene, lightColor, camera, renderer)
 
   initGround();
   for (let i = 0; i < 10; i++) {

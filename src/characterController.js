@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import {addDragControls} from "./utils.js";
+import {addDragControls, getActivePlayer} from "./utils.js";
+import {Vector3} from "three";
 
 export const hideNonVisibleLights = (scene, position, viewDistance = 400) => {
   const lights = scene.getObjectsByProperty('name', 'sourceLight')
@@ -32,36 +33,58 @@ export const hideNonVisibleLights = (scene, position, viewDistance = 400) => {
   }, [])
 }
 
-const handleKeyNavigation = (event, player, scene) => {
+const handleKeyNavigation = (event, scene) => {
+  const player = getActivePlayer(scene)
   if (event.key === 'ArrowUp') {
-    player.translateZ(-50)
+    player.translateZ(-25)
   } else if (event.key === 'ArrowDown') {
-    player.translateZ(50)
+    player.translateZ(25)
   } else if (event.key === 'ArrowLeft') {
-    player.translateX(-50)
+    player.translateX(-25)
   } else if (event.key === 'ArrowRight') {
-    player.translateX(50)
+    player.translateX(25)
   }
 
   hideNonVisibleLights(scene, player.position)
 }
 
-export const initCharacter = (scene, camera, renderer) => {
+const selectPlayer = (currentPlayer, scene) => {
+  const otherPlayers = scene.getObjectsByProperty('name', 'player')
+  otherPlayers.forEach((player) => {
+    player.userData.selected = false;
+  })
+  currentPlayer.userData.selected = true
+}
+
+export const initCharacter = (scene, camera, renderer, location =  new Vector3(25, 10, 25)) => {
+  const otherPlayers = scene.getObjectsByProperty('name', 'player')
+  otherPlayers.forEach((player) => {
+    player.userData.selected = false;
+  })
+
   const geometry = new THREE.CylinderGeometry(20, 5, 20, 32);
   const material = new THREE.MeshBasicMaterial({color: 0xffff00});
   const cylinder = new THREE.Mesh(geometry, material);
+
+  cylinder.userData = {
+    selected: true
+  }
+
+  cylinder.name = "player"
+
   scene.add(cylinder);
 
-  cylinder.position.set(25, 10, 25)
+  cylinder.position.set(location.x, location.y, location.z)
   setTimeout(() => hideNonVisibleLights(scene, cylinder.position), 10)
 
   addDragControls(camera, renderer)({
     primary: cylinder, onDragComplete: (newPosition) => {
+      selectPlayer(cylinder, scene)
       hideNonVisibleLights(scene, cylinder.position)
     }
   })
 
-  document.addEventListener('keydown', (event) => handleKeyNavigation(event, cylinder, scene))
+  document.addEventListener('keydown', (event) => handleKeyNavigation(event,  scene))
 
   scene.add(cylinder)
   return cylinder

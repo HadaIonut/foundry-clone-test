@@ -27,3 +27,8 @@ export const addDragControls = (camera, renderer) => ({primary, secondary, onDra
     onDragComplete?.(primary.position)
   })
 }
+
+export const getActivePlayer = (scene) => {
+  const player = scene.getObjectsByProperty('name', 'player')
+  return player.filter((player) => player.userData.selected)[0]
+}

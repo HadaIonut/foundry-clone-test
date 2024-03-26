@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import {addDragControls} from "./utils.js";
+import {addDragControls, getActivePlayer} from "./utils.js";
 import {hideNonVisibleLights} from "./characterController.js";
 import {watch} from "vue";
 
@@ -16,7 +16,7 @@ const shouldCastShadow = (light, scene) => {
   return walls.reduce((acc, cur) => acc || cur.position.distanceTo(light.position) < light.distance, false)
 }
 
-export const initLights = (scene, lightColor, camera, renderer, player) => ({x, y, z}) => {
+export const initLights = (scene, lightColor, camera, renderer) => ({x, y, z}) => {
   const geometry = new THREE.SphereGeometry(20);
   geometry.computeBoundsTree()
   const material = new THREE.MeshBasicMaterial({color: "orange"});
@@ -39,6 +39,8 @@ export const initLights = (scene, lightColor, camera, renderer, player) => ({x, 
 
   addDragControls(camera, renderer)({
     primary: cube, secondary: light, onDragComplete: () => {
+      const player = getActivePlayer(scene)
+      console.log(player.position)
       hideNonVisibleLights(scene, player.position)
       console.log("drag complete")
       light.castShadow = shouldCastShadow(light, scene)
